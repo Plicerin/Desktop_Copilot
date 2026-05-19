@@ -556,8 +556,8 @@ public partial class MainWindow : Window
     {
         Width = DefaultWidgetSize;
         Height = DefaultWidgetSize;
-        AnimationCanvas.Width = Math.Max(1, sequence.CanvasWidth);
-        AnimationCanvas.Height = Math.Max(1, sequence.CanvasHeight);
+        AnimationCanvas.Width = double.NaN;
+        AnimationCanvas.Height = double.NaN;
         UpdateOrbContentLayout();
 
         PositionNearDesktopEdge();
