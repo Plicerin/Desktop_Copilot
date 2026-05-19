@@ -168,7 +168,6 @@ public partial class App : Wpf.Application
         {
             window.LoadAnimationFile(path);
             UpdateCurrentAnimationMenuItem();
-            ShowTrayMessage("Animation loaded", window.GetCurrentAnimationDisplayName());
         }
         catch (Exception exception)
         {
@@ -189,7 +188,6 @@ public partial class App : Wpf.Application
             if (!string.IsNullOrWhiteSpace(loadedPath))
             {
                 UpdateCurrentAnimationMenuItem();
-                ShowTrayMessage("Animation loaded", window.GetCurrentAnimationDisplayName());
             }
         }
         catch (Exception exception)
@@ -209,13 +207,6 @@ public partial class App : Wpf.Application
         {
             var reloadedPath = window.ReloadAnimation();
             UpdateCurrentAnimationMenuItem();
-            if (!string.IsNullOrWhiteSpace(reloadedPath))
-            {
-                ShowTrayMessage("Animation loaded", window.GetCurrentAnimationDisplayName());
-                return;
-            }
-
-            ShowTrayMessage("Animation loaded", "Built-in animation reloaded.");
         }
         catch (Exception exception)
         {
@@ -280,7 +271,6 @@ public partial class App : Wpf.Application
         {
             var animationName = window.UseBuiltInAnimation(preset);
             UpdateCurrentAnimationMenuItem();
-            ShowTrayMessage("Animation selected", animationName);
         }
         catch (Exception exception)
         {
