@@ -13,4 +13,8 @@
     <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.5" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Resource Include="tray.ico" />
+  </ItemGroup>
+
 </Project>

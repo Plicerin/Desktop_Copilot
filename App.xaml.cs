@@ -91,10 +91,16 @@ public partial class App : Wpf.Application
         contextMenu.Items.Add(new Forms.ToolStripSeparator());
         contextMenu.Items.Add("Exit", null, (_, _) => Shutdown());
 
+        var iconUri = new Uri("pack://application:,,,/tray.ico", UriKind.Absolute);
+        var iconStream = Wpf.Application.GetResourceStream(iconUri)?.Stream;
+        var trayIcon = iconStream is not null
+            ? new Drawing.Icon(iconStream)
+            : Drawing.SystemIcons.Application;
+
         var notifyIcon = new Forms.NotifyIcon
         {
             ContextMenuStrip = contextMenu,
-            Icon = Drawing.SystemIcons.Application,
+            Icon = trayIcon,
             Text = "Desktop Copilot",
             Visible = true
         };
