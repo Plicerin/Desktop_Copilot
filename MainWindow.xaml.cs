@@ -714,7 +714,7 @@ public partial class MainWindow : Window
     {
         Width = DefaultWidgetWidth;
         Height = DefaultWidgetHeight;
-        AnimationCanvas.Width = double.NaN;
+        AnimationCanvas.Width = 260;
         AnimationCanvas.Height = double.NaN;
         UpdateOrbContentLayout();
 
