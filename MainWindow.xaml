@@ -91,5 +91,7 @@
                  StrokeThickness="1.5"
                  Visibility="Collapsed" />
 
+        <Canvas x:Name="FrameOverlayCanvas" IsHitTestVisible="False" />
+
     </Grid>
 </Window>

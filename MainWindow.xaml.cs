@@ -52,6 +52,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         AppLog.Info("MainWindow constructed.");
         OrbContentHost.SizeChanged += (_, _) => { UpdateOrbContentClip(); SyncHtmlWindowPosition(); };
+        FrameOverlayCanvas.SizeChanged += (_, _) => RedrawFrameOverlay();
         LocationChanged += (_, _) => SyncHtmlWindowPosition();
         IsVisibleChanged += (_, _) =>
         {
@@ -762,6 +763,7 @@ public partial class MainWindow : Window
             palette.FrameInnerStroke);
 
         UpdateOrbContentLayout(style);
+        DrawFrameOverlay(style.OverlayType, palette);
     }
 
     private void ConfigureRing(
@@ -782,6 +784,138 @@ public partial class MainWindow : Window
     private static SolidColorBrush BrushFromHex(string hex)
     {
         return new SolidColorBrush((WpfColor)WpfColorConverter.ConvertFromString(hex));
+    }
+
+    private void RedrawFrameOverlay()
+    {
+        var style = WidgetAppearanceCatalog.GetFrameStyle(_frameStylePreset);
+        var palette = WidgetAppearanceCatalog.GetPalette(_colorPalettePreset);
+        DrawFrameOverlay(style.OverlayType, palette);
+    }
+
+    private void DrawFrameOverlay(FrameOverlayType type, WidgetColorPalette palette)
+    {
+        FrameOverlayCanvas.Children.Clear();
+        if (type == FrameOverlayType.None) return;
+        if (FrameOverlayCanvas.ActualWidth <= 0) return;
+
+        var cx = FrameOverlayCanvas.ActualWidth / 2;
+        var cy = FrameOverlayCanvas.ActualHeight / 2;
+        var stroke = BrushFromHex(palette.FrameAccentStroke);
+
+        switch (type)
+        {
+            case FrameOverlayType.Crosshair:      DrawCrosshair(cx, cy, stroke);      break;
+            case FrameOverlayType.CornerBrackets: DrawCornerBrackets(cx, cy, stroke); break;
+            case FrameOverlayType.SegmentedArc:   DrawSegmentedArc(cx, cy, stroke);   break;
+            case FrameOverlayType.TickRing:       DrawTickRing(cx, cy, stroke);       break;
+        }
+    }
+
+    private void DrawCrosshair(double cx, double cy, SolidColorBrush stroke)
+    {
+        const double Gap = 32;
+        const double Reach = 112;
+        const double Sw = 1.5;
+
+        (double x1, double y1, double x2, double y2)[] lines =
+        [
+            (cx, cy - Gap, cx, cy - Reach),
+            (cx, cy + Gap, cx, cy + Reach),
+            (cx - Gap, cy, cx - Reach, cy),
+            (cx + Gap, cy, cx + Reach, cy),
+        ];
+
+        foreach (var (x1, y1, x2, y2) in lines)
+            FrameOverlayCanvas.Children.Add(MakeLine(x1, y1, x2, y2, stroke, Sw));
+    }
+
+    private void DrawCornerBrackets(double cx, double cy, SolidColorBrush stroke)
+    {
+        const double R = 90;
+        const double Arm = 22;
+        const double Sw = 1.5;
+
+        (double sx, double sy)[] corners = [(-1, -1), (1, -1), (-1, 1), (1, 1)];
+
+        foreach (var (sx, sy) in corners)
+        {
+            double bx = cx + sx * R;
+            double by = cy + sy * R;
+            FrameOverlayCanvas.Children.Add(MakeLine(bx, by, bx - sx * Arm, by, stroke, Sw));
+            FrameOverlayCanvas.Children.Add(MakeLine(bx, by, bx, by - sy * Arm, stroke, Sw));
+        }
+    }
+
+    private void DrawSegmentedArc(double cx, double cy, SolidColorBrush stroke)
+    {
+        const double R = 108;
+        const double GapDeg = 22.0;
+        const double Sw = 2.0;
+
+        for (int i = 0; i < 4; i++)
+        {
+            double startDeg = i * 90 + GapDeg / 2;
+            double endDeg = startDeg + (90 - GapDeg);
+            FrameOverlayCanvas.Children.Add(MakeArc(cx, cy, R, startDeg, endDeg, stroke, Sw));
+        }
+    }
+
+    private void DrawTickRing(double cx, double cy, SolidColorBrush stroke)
+    {
+        const double R = 106;
+        const double Sw = 1.0;
+
+        var ring = new System.Windows.Shapes.Ellipse
+        {
+            Width = R * 2,
+            Height = R * 2,
+            Stroke = stroke,
+            StrokeThickness = Sw * 0.75,
+            Fill = System.Windows.Media.Brushes.Transparent,
+            IsHitTestVisible = false,
+            Opacity = 0.6,
+        };
+        System.Windows.Controls.Canvas.SetLeft(ring, cx - R);
+        System.Windows.Controls.Canvas.SetTop(ring, cy - R);
+        FrameOverlayCanvas.Children.Add(ring);
+
+        for (int i = 0; i < 36; i++)
+        {
+            bool isMajor = i % 3 == 0;
+            double angleRad = i * 10.0 * Math.PI / 180.0;
+            double outerR = R;
+            double innerR = R - (isMajor ? 9 : 4);
+            FrameOverlayCanvas.Children.Add(MakeLine(
+                cx + outerR * Math.Cos(angleRad), cy + outerR * Math.Sin(angleRad),
+                cx + innerR * Math.Cos(angleRad), cy + innerR * Math.Sin(angleRad),
+                stroke, isMajor ? Sw * 1.5 : Sw * 0.75));
+        }
+    }
+
+    private static System.Windows.Shapes.Line MakeLine(
+        double x1, double y1, double x2, double y2,
+        System.Windows.Media.Brush stroke, double sw) =>
+        new() { X1 = x1, Y1 = y1, X2 = x2, Y2 = y2, Stroke = stroke, StrokeThickness = sw, IsHitTestVisible = false };
+
+    private static System.Windows.Shapes.Path MakeArc(
+        double cx, double cy, double r,
+        double startDeg, double endDeg,
+        System.Windows.Media.Brush stroke, double sw)
+    {
+        double startRad = startDeg * Math.PI / 180.0;
+        double endRad = endDeg * Math.PI / 180.0;
+        var startPt = new System.Windows.Point(cx + r * Math.Cos(startRad), cy + r * Math.Sin(startRad));
+        var endPt = new System.Windows.Point(cx + r * Math.Cos(endRad), cy + r * Math.Sin(endRad));
+        var figure = new PathFigure { StartPoint = startPt };
+        figure.Segments.Add(new ArcSegment(endPt, new System.Windows.Size(r, r), 0, false, SweepDirection.Clockwise, true));
+        var geo = new PathGeometry();
+        geo.Figures.Add(figure);
+        return new System.Windows.Shapes.Path
+        {
+            Data = geo, Stroke = stroke, StrokeThickness = sw,
+            Fill = System.Windows.Media.Brushes.Transparent, IsHitTestVisible = false,
+        };
     }
 
     private void PlayReleaseCue()

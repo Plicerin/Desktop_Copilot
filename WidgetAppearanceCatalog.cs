@@ -1,5 +1,7 @@
 ﻿namespace DesktopCopilot;
 
+public enum FrameOverlayType { None, Crosshair, CornerBrackets, SegmentedArc, TickRing }
+
 public enum FrameStylePreset
 {
     ShaderRing,
@@ -9,7 +11,11 @@ public enum FrameStylePreset
     BareWire,
     BoldForge,
     DualOrbit,
-    DeepGlass
+    DeepGlass,
+    CrosshairReticle,
+    CornerBrackets,
+    SegmentedHUD,
+    ClockFace
 }
 
 public enum ColorPalettePreset
@@ -34,7 +40,8 @@ public sealed record FrameStyleSpec(
     bool ShowInnerRing,
     double InnerMargin,
     double InnerStrokeThickness,
-    double InnerOpacity);
+    double InnerOpacity,
+    FrameOverlayType OverlayType = FrameOverlayType.None);
 
 public sealed record WidgetColorPalette(
     string IdleShellFill,
@@ -65,7 +72,11 @@ public static class WidgetAppearanceCatalog
             FrameStylePreset.BareWire,
             FrameStylePreset.BoldForge,
             FrameStylePreset.DualOrbit,
-            FrameStylePreset.DeepGlass
+            FrameStylePreset.DeepGlass,
+            FrameStylePreset.CrosshairReticle,
+            FrameStylePreset.CornerBrackets,
+            FrameStylePreset.SegmentedHUD,
+            FrameStylePreset.ClockFace,
         };
 
     public static IReadOnlyList<ColorPalettePreset> ColorPalettes { get; } =
@@ -89,6 +100,10 @@ public static class WidgetAppearanceCatalog
             FrameStylePreset.BoldForge => "Bold Forge",
             FrameStylePreset.DualOrbit => "Dual Orbit",
             FrameStylePreset.DeepGlass => "Deep Glass",
+            FrameStylePreset.CrosshairReticle => "Crosshair",
+            FrameStylePreset.CornerBrackets => "Corner Brackets",
+            FrameStylePreset.SegmentedHUD => "Segmented HUD",
+            FrameStylePreset.ClockFace => "Clock Face",
             _ => preset.ToString()
         };
     }
@@ -237,6 +252,79 @@ public static class WidgetAppearanceCatalog
                 InnerMargin: 20,
                 InnerStrokeThickness: 1,
                 InnerOpacity: 0),
+
+            // 4 lines radiating outward from a gap at center — targeting reticle
+            FrameStylePreset.CrosshairReticle => new FrameStyleSpec(
+                UsePngFrame: false,
+                ShowOuterShell: false,
+                PngScale: 1.0,
+                ShellOpacity: 0,
+                OuterMargin: 6,
+                OuterStrokeThickness: 1,
+                ShowAccentRing: false,
+                AccentMargin: 12,
+                AccentStrokeThickness: 1,
+                AccentOpacity: 0,
+                ShowInnerRing: false,
+                InnerMargin: 18,
+                InnerStrokeThickness: 1,
+                InnerOpacity: 0,
+                OverlayType: FrameOverlayType.Crosshair),
+
+            // L-brackets at 4 corners of the bounding square — camera viewfinder
+            FrameStylePreset.CornerBrackets => new FrameStyleSpec(
+                UsePngFrame: false,
+                ShowOuterShell: false,
+                PngScale: 1.0,
+                ShellOpacity: 0,
+                OuterMargin: 6,
+                OuterStrokeThickness: 1,
+                ShowAccentRing: false,
+                AccentMargin: 12,
+                AccentStrokeThickness: 1,
+                AccentOpacity: 0,
+                ShowInnerRing: false,
+                InnerMargin: 18,
+                InnerStrokeThickness: 1,
+                InnerOpacity: 0,
+                OverlayType: FrameOverlayType.CornerBrackets),
+
+            // 4 arc segments with gaps at cardinal points — sci-fi HUD ring
+            FrameStylePreset.SegmentedHUD => new FrameStyleSpec(
+                UsePngFrame: false,
+                ShowOuterShell: false,
+                PngScale: 1.0,
+                ShellOpacity: 0,
+                OuterMargin: 6,
+                OuterStrokeThickness: 1,
+                ShowAccentRing: false,
+                AccentMargin: 12,
+                AccentStrokeThickness: 1,
+                AccentOpacity: 0,
+                ShowInnerRing: false,
+                InnerMargin: 18,
+                InnerStrokeThickness: 1,
+                InnerOpacity: 0,
+                OverlayType: FrameOverlayType.SegmentedArc),
+
+            // Ring with 36 tick marks — clock face / instrument bezel
+            FrameStylePreset.ClockFace => new FrameStyleSpec(
+                UsePngFrame: false,
+                ShowOuterShell: false,
+                PngScale: 1.0,
+                ShellOpacity: 0,
+                OuterMargin: 6,
+                OuterStrokeThickness: 1,
+                ShowAccentRing: false,
+                AccentMargin: 12,
+                AccentStrokeThickness: 1,
+                AccentOpacity: 0,
+                ShowInnerRing: false,
+                InnerMargin: 18,
+                InnerStrokeThickness: 1,
+                InnerOpacity: 0,
+                OverlayType: FrameOverlayType.TickRing),
+
             _ => throw new ArgumentOutOfRangeException(nameof(preset), preset, null)
         };
     }
