@@ -5,7 +5,11 @@ public enum FrameStylePreset
     ShaderRing,
     ClassicChrome,
     NeonHalo,
-    MinimalGlass
+    MinimalGlass,
+    BareWire,
+    BoldForge,
+    DualOrbit,
+    DeepGlass
 }
 
 public enum ColorPalettePreset
@@ -57,7 +61,11 @@ public static class WidgetAppearanceCatalog
             FrameStylePreset.ShaderRing,
             FrameStylePreset.ClassicChrome,
             FrameStylePreset.NeonHalo,
-            FrameStylePreset.MinimalGlass
+            FrameStylePreset.MinimalGlass,
+            FrameStylePreset.BareWire,
+            FrameStylePreset.BoldForge,
+            FrameStylePreset.DualOrbit,
+            FrameStylePreset.DeepGlass
         };
 
     public static IReadOnlyList<ColorPalettePreset> ColorPalettes { get; } =
@@ -77,6 +85,10 @@ public static class WidgetAppearanceCatalog
             FrameStylePreset.ClassicChrome => "Classic Chrome",
             FrameStylePreset.NeonHalo => "Neon Halo",
             FrameStylePreset.MinimalGlass => "Minimal Glass",
+            FrameStylePreset.BareWire => "Bare Wire",
+            FrameStylePreset.BoldForge => "Bold Forge",
+            FrameStylePreset.DualOrbit => "Dual Orbit",
+            FrameStylePreset.DeepGlass => "Deep Glass",
             _ => preset.ToString()
         };
     }
@@ -153,6 +165,74 @@ public static class WidgetAppearanceCatalog
                 AccentMargin: 16,
                 AccentStrokeThickness: 1.25,
                 AccentOpacity: 0.55,
+                ShowInnerRing: false,
+                InnerMargin: 20,
+                InnerStrokeThickness: 1,
+                InnerOpacity: 0),
+
+            // No dark shell — just two thin concentric rings floating over the animation
+            FrameStylePreset.BareWire => new FrameStyleSpec(
+                UsePngFrame: false,
+                ShowOuterShell: false,
+                PngScale: 1.0,
+                ShellOpacity: 0,
+                OuterMargin: 6,
+                OuterStrokeThickness: 1,
+                ShowAccentRing: true,
+                AccentMargin: 8,
+                AccentStrokeThickness: 1,
+                AccentOpacity: 0.75,
+                ShowInnerRing: true,
+                InnerMargin: 18,
+                InnerStrokeThickness: 1,
+                InnerOpacity: 0.4),
+
+            // Heavy outer shell and thick accent ring — maximum visual presence
+            FrameStylePreset.BoldForge => new FrameStyleSpec(
+                UsePngFrame: false,
+                ShowOuterShell: true,
+                PngScale: 1.0,
+                ShellOpacity: 1.0,
+                OuterMargin: 4,
+                OuterStrokeThickness: 4.5,
+                ShowAccentRing: true,
+                AccentMargin: 10,
+                AccentStrokeThickness: 5,
+                AccentOpacity: 1.0,
+                ShowInnerRing: false,
+                InnerMargin: 18,
+                InnerStrokeThickness: 1,
+                InnerOpacity: 0),
+
+            // Two evenly-spaced medium rings, no outer shell — orbital feel
+            FrameStylePreset.DualOrbit => new FrameStyleSpec(
+                UsePngFrame: false,
+                ShowOuterShell: false,
+                PngScale: 1.0,
+                ShellOpacity: 0,
+                OuterMargin: 4,
+                OuterStrokeThickness: 1,
+                ShowAccentRing: true,
+                AccentMargin: 6,
+                AccentStrokeThickness: 2,
+                AccentOpacity: 0.9,
+                ShowInnerRing: true,
+                InnerMargin: 20,
+                InnerStrokeThickness: 2,
+                InnerOpacity: 0.9),
+
+            // Ghost-translucent shell with no rings — barely-there glass orb
+            FrameStylePreset.DeepGlass => new FrameStyleSpec(
+                UsePngFrame: false,
+                ShowOuterShell: true,
+                PngScale: 1.0,
+                ShellOpacity: 0.28,
+                OuterMargin: 6,
+                OuterStrokeThickness: 0.75,
+                ShowAccentRing: false,
+                AccentMargin: 12,
+                AccentStrokeThickness: 1,
+                AccentOpacity: 0,
                 ShowInnerRing: false,
                 InnerMargin: 20,
                 InnerStrokeThickness: 1,
