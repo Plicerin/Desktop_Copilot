@@ -12,7 +12,7 @@ public sealed class SpeechCaptureService : IDisposable
     private const byte VirtualKeySpace = 0x20;
     private const byte VirtualKeyEscape = 0x1B;
     private const uint KeyEventKeyUp = 0x0002;
-    private static readonly TimeSpan HandyStartTimeout = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan WalkieStartTimeout = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan TranscriptionTimeout = TimeSpan.FromSeconds(6);
     private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(100);
 
@@ -33,13 +33,13 @@ public sealed class SpeechCaptureService : IDisposable
 
     public void StartDictation()
     {
-        AppLog.Info($"SpeechCaptureService.StartDictation backend=Handy model={TryGetSelectedModel() ?? "unknown"}");
+        AppLog.Info($"SpeechCaptureService.StartDictation backend=Walkie model={TryGetSelectedModel() ?? "unknown"}");
         StartListening(CaptureMode.Dictation);
     }
 
     public void StartConfirmation()
     {
-        AppLog.Info($"SpeechCaptureService.StartConfirmation backend=Handy model={TryGetSelectedModel() ?? "unknown"}");
+        AppLog.Info($"SpeechCaptureService.StartConfirmation backend=Walkie model={TryGetSelectedModel() ?? "unknown"}");
         StartListening(CaptureMode.Confirmation);
     }
 
@@ -61,7 +61,7 @@ public sealed class SpeechCaptureService : IDisposable
                 return;
             }
 
-            AppLog.Info("SpeechCaptureService.StopListening backend=Handy");
+            AppLog.Info("SpeechCaptureService.StopListening backend=Walkie");
             _suppressResult = false;
             completedMode = _activeMode.Value;
             baselineId = _historyBaselineId;
@@ -84,7 +84,7 @@ public sealed class SpeechCaptureService : IDisposable
 
         lock (_syncRoot)
         {
-            AppLog.Info("SpeechCaptureService.CancelListening backend=Handy");
+            AppLog.Info("SpeechCaptureService.CancelListening backend=Walkie");
             _suppressResult = true;
             CancelPendingLookup();
             SendCancelCommand();
@@ -116,7 +116,7 @@ public sealed class SpeechCaptureService : IDisposable
             return;
         }
 
-        EnsureHandyRunning();
+        EnsureWalkieRunning();
 
         lock (_syncRoot)
         {
@@ -124,7 +124,7 @@ public sealed class SpeechCaptureService : IDisposable
             _activeMode = mode;
             _historyBaselineId = GetLatestHistoryId();
             _suppressResult = false;
-            AppLog.Info($"SpeechCaptureService.StartListening mode={mode} backend=Handy baselineId={_historyBaselineId}");
+            AppLog.Info($"SpeechCaptureService.StartListening mode={mode} backend=Walkie baselineId={_historyBaselineId}");
             PressTranscribeHotkey();
             SetListeningState(isListening: true);
         }
@@ -132,7 +132,7 @@ public sealed class SpeechCaptureService : IDisposable
 
     private async Task AwaitTranscriptionAsync(CaptureMode mode, long baselineId, CancellationToken cancellationToken)
     {
-        AppLog.Info($"Awaiting Handy transcription mode={mode} baselineId={baselineId}");
+        AppLog.Info($"Awaiting Walkie transcription mode={mode} baselineId={baselineId}");
 
         try
         {
@@ -152,8 +152,8 @@ public sealed class SpeechCaptureService : IDisposable
                 await Task.Delay(PollInterval, cancellationToken);
             }
 
-            AppLog.Info($"Handy transcription timed out after {TranscriptionTimeout.TotalSeconds:F1}s baselineId={baselineId}");
-            CompleteWithFailure(new SpeechCaptureFailedEventArgs("Handy did not return a transcription in time.", mode));
+            AppLog.Info($"Walkie transcription timed out after {TranscriptionTimeout.TotalSeconds:F1}s baselineId={baselineId}");
+            CompleteWithFailure(new SpeechCaptureFailedEventArgs("Walkie did not return a transcription in time.", mode));
         }
         catch (OperationCanceledException)
         {
@@ -162,13 +162,13 @@ public sealed class SpeechCaptureService : IDisposable
         catch (Exception exception)
         {
             AppLog.Error("AwaitTranscriptionAsync failed.", exception);
-            CompleteWithFailure(new SpeechCaptureFailedEventArgs("Handy transcription failed.", mode));
+            CompleteWithFailure(new SpeechCaptureFailedEventArgs("Walkie transcription failed.", mode));
         }
     }
 
-    private void CompleteFromTranscription(CaptureMode mode, HandyTranscriptionEntry entry)
+    private void CompleteFromTranscription(CaptureMode mode, WalkieTranscriptionEntry entry)
     {
-        AppLog.Info($"Handy transcription received id={entry.Id} timestamp={entry.Timestamp} text=\"{entry.Text}\"");
+        AppLog.Info($"Walkie transcription received id={entry.Id} timestamp={entry.Timestamp} text=\"{entry.Text}\"");
 
         bool suppressResult;
         lock (_syncRoot)
@@ -225,12 +225,12 @@ public sealed class SpeechCaptureService : IDisposable
         }
     }
 
-    private static HandyTranscriptionEntry? TryGetLatestTranscription(long baselineId)
+    private static WalkieTranscriptionEntry? TryGetLatestTranscription(long baselineId)
     {
-        var historyPath = GetHandyHistoryPath();
+        var historyPath = GetWalkieHistoryPath();
         if (!File.Exists(historyPath))
         {
-            throw new FileNotFoundException("Handy history database was not found.", historyPath);
+            throw new FileNotFoundException("Walkie history database was not found.", historyPath);
         }
 
         using var connection = new SqliteConnection($"Data Source={historyPath}");
@@ -253,7 +253,7 @@ public sealed class SpeechCaptureService : IDisposable
             return null;
         }
 
-        return new HandyTranscriptionEntry(
+        return new WalkieTranscriptionEntry(
             reader.GetInt64(0),
             reader.GetInt64(1),
             reader.GetString(2));
@@ -261,10 +261,10 @@ public sealed class SpeechCaptureService : IDisposable
 
     private static long GetLatestHistoryId()
     {
-        var historyPath = GetHandyHistoryPath();
+        var historyPath = GetWalkieHistoryPath();
         if (!File.Exists(historyPath))
         {
-            throw new InvalidOperationException("Handy history database was not found.");
+            throw new InvalidOperationException("Walkie history database was not found.");
         }
 
         using var connection = new SqliteConnection($"Data Source={historyPath}");
@@ -276,20 +276,20 @@ public sealed class SpeechCaptureService : IDisposable
         return result is long longValue ? longValue : Convert.ToInt64(result);
     }
 
-    private static void EnsureHandyRunning()
+    private static void EnsureWalkieRunning()
     {
-        if (Process.GetProcessesByName("handy").Length > 0)
+        if (Process.GetProcessesByName("walkie").Length > 0)
         {
             return;
         }
 
-        var executablePath = GetHandyExecutablePath();
+        var executablePath = GetWalkieExecutablePath();
         if (!File.Exists(executablePath))
         {
-            throw new InvalidOperationException("Handy is not installed.");
+            throw new InvalidOperationException("Walkie is not installed.");
         }
 
-        AppLog.Info($"Starting Handy from {executablePath}");
+        AppLog.Info($"Starting Walkie from {executablePath}");
         Process.Start(new ProcessStartInfo
         {
             FileName = executablePath,
@@ -298,11 +298,11 @@ public sealed class SpeechCaptureService : IDisposable
         });
 
         var startedAt = DateTime.UtcNow;
-        while (Process.GetProcessesByName("handy").Length == 0)
+        while (Process.GetProcessesByName("walkie").Length == 0)
         {
-            if (DateTime.UtcNow - startedAt > HandyStartTimeout)
+            if (DateTime.UtcNow - startedAt > WalkieStartTimeout)
             {
-                throw new InvalidOperationException("Handy did not start in time.");
+                throw new InvalidOperationException("Walkie did not start in time.");
             }
 
             Thread.Sleep(100);
@@ -351,27 +351,27 @@ public sealed class SpeechCaptureService : IDisposable
         _pendingLookupCts = null;
     }
 
-    private static string GetHandyExecutablePath()
+    private static string GetWalkieExecutablePath()
     {
         return Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Handy",
-            "handy.exe");
+            "Walkie",
+            "walkie.exe");
     }
 
-    private static string GetHandyHistoryPath()
+    private static string GetWalkieHistoryPath()
     {
         return Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "com.pais.handy",
+            "com.pais.walkie",
             "history.db");
     }
 
-    private static string GetHandySettingsPath()
+    private static string GetWalkieSettingsPath()
     {
         return Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "com.pais.handy",
+            "com.pais.walkie",
             "settings_store.json");
     }
 
@@ -379,7 +379,7 @@ public sealed class SpeechCaptureService : IDisposable
     {
         try
         {
-            var settingsPath = GetHandySettingsPath();
+            var settingsPath = GetWalkieSettingsPath();
             if (!File.Exists(settingsPath))
             {
                 return null;
@@ -396,7 +396,7 @@ public sealed class SpeechCaptureService : IDisposable
         }
         catch (Exception exception)
         {
-            AppLog.Error("Unable to read Handy selected model.", exception);
+            AppLog.Error("Unable to read Walkie selected model.", exception);
             return null;
         }
     }
@@ -415,7 +415,7 @@ public sealed class SpeechCaptureService : IDisposable
     [DllImport("user32.dll", SetLastError = true)]
     private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, nuint dwExtraInfo);
 
-    private sealed record HandyTranscriptionEntry(long Id, long Timestamp, string Text);
+    private sealed record WalkieTranscriptionEntry(long Id, long Timestamp, string Text);
 }
 
 public enum CaptureMode
