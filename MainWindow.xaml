@@ -1,0 +1,92 @@
+﻿<Window x:Class="DesktopCopilot.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="Desktop Copilot"
+        Width="240"
+        Height="240"
+        AllowsTransparency="True"
+        Background="Transparent"
+        PreviewMouseLeftButtonDown="Window_MouseLeftButtonDown"
+        PreviewMouseLeftButtonUp="Window_MouseLeftButtonUp"
+        PreviewMouseMove="Window_MouseMove"
+        LostMouseCapture="Window_LostMouseCapture"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        Topmost="True"
+        WindowStartupLocation="Manual"
+        WindowStyle="None">
+    <Grid Cursor="Hand">
+        <Grid.Effect>
+            <DropShadowEffect BlurRadius="28"
+                              Direction="270"
+                              Opacity="0.35"
+                              RenderingBias="Performance"
+                              ShadowDepth="10"
+                              Color="#FF000000" />
+        </Grid.Effect>
+
+        <Ellipse x:Name="OuterShell"
+                 Margin="6"
+                 Fill="#FF1A1D24"
+                 Stroke="#40FFFFFF"
+                 StrokeThickness="2" />
+
+        <Grid x:Name="OrbContentHost"
+              Margin="24">
+            <Ellipse x:Name="AnimationBackdrop"
+                     Fill="#FF000000" />
+
+            <Ellipse x:Name="InnerGlow"
+                     Fill="#2800A4FF" />
+
+            <Viewbox x:Name="AnimationViewbox"
+                     Visibility="Visible"
+                     Stretch="Uniform"
+                     HorizontalAlignment="Center"
+                     VerticalAlignment="Center">
+                <Grid x:Name="AnimationCanvas"
+                      Background="Transparent"
+                      HorizontalAlignment="Center"
+                      VerticalAlignment="Center">
+                    <TextBlock x:Name="AsciiFaceText"
+                               FontFamily="Cascadia Mono,Consolas,Lucida Console"
+                               FontSize="18"
+                               FontWeight="SemiBold"
+                               Foreground="#FFF7FAFF"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               xml:space="preserve"
+                               TextAlignment="Left"
+                               TextWrapping="NoWrap" />
+                </Grid>
+            </Viewbox>
+        </Grid>
+
+        <Image x:Name="PngFrameImage"
+               Stretch="Fill"
+               Visibility="Collapsed"
+               RenderTransformOrigin="0.5,0.5">
+            <Image.RenderTransform>
+                <ScaleTransform ScaleX="1.15" ScaleY="1.15" />
+            </Image.RenderTransform>
+        </Image>
+
+        <Ellipse x:Name="FrameAccentRing"
+                 Margin="12"
+                 Fill="Transparent"
+                 Stroke="#A0C778FF"
+                 StrokeThickness="2"
+                 Visibility="Collapsed" />
+
+        <Ellipse x:Name="FrameInnerRing"
+                 Margin="18"
+                 Fill="Transparent"
+                 Stroke="#55FFFFFF"
+                 StrokeThickness="1.5"
+                 Visibility="Collapsed" />
+
+    </Grid>
+</Window>

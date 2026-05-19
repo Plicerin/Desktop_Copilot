@@ -1,0 +1,283 @@
+using System.Diagnostics;
+using System.IO;
+using System.Threading;
+using Drawing = System.Drawing;
+using Forms = System.Windows.Forms;
+using Wpf = System.Windows;
+
+namespace DesktopCopilot;
+
+public partial class App : Wpf.Application
+{
+    private Forms.NotifyIcon? _notifyIcon;
+    private Forms.ToolStripMenuItem? _currentAnimationMenuItem;
+    private readonly CrashTriageService _crashTriageService = new();
+
+    protected override void OnStartup(Wpf.StartupEventArgs e)
+    {
+        base.OnStartup(e);
+        var logPath = AppLog.Initialize();
+        AppLog.Info($"Application startup. Log path: {logPath}");
+
+        MainWindow = new MainWindow();
+        MainWindow.Show();
+
+        _notifyIcon = BuildNotifyIcon();
+    }
+
+    protected override void OnExit(Wpf.ExitEventArgs e)
+    {
+        AppLog.Info("Application exiting.");
+
+        if (_notifyIcon is not null)
+        {
+            _notifyIcon.Visible = false;
+            _notifyIcon.Dispose();
+        }
+
+        base.OnExit(e);
+    }
+
+    private Forms.NotifyIcon BuildNotifyIcon()
+    {
+        var contextMenu = new Forms.ContextMenuStrip();
+        _currentAnimationMenuItem = new Forms.ToolStripMenuItem("Current Animation: (loading)")
+        {
+            Enabled = true
+        };
+        var frameStylesMenu = new Forms.ToolStripMenuItem("Frame Styles");
+        foreach (var preset in WidgetAppearanceCatalog.FrameStyles)
+        {
+            var capturedPreset = preset;
+            frameStylesMenu.DropDownItems.Add(
+                WidgetAppearanceCatalog.GetDisplayName(capturedPreset),
+                null,
+                (_, _) => UseFrameStyle(capturedPreset));
+        }
+
+        var colorPalettesMenu = new Forms.ToolStripMenuItem("Color Palettes");
+        foreach (var preset in WidgetAppearanceCatalog.ColorPalettes)
+        {
+            var capturedPreset = preset;
+            colorPalettesMenu.DropDownItems.Add(
+                WidgetAppearanceCatalog.GetDisplayName(capturedPreset),
+                null,
+                (_, _) => UseColorPalette(capturedPreset));
+        }
+
+        var builtInAnimationsMenu = new Forms.ToolStripMenuItem("Built-in Animations");
+
+        foreach (var preset in AnimationPresets.All)
+        {
+            var capturedPreset = preset;
+            builtInAnimationsMenu.DropDownItems.Add(
+                AnimationPresets.GetDisplayName(capturedPreset),
+                null,
+                (_, _) => UseBuiltInAnimation(capturedPreset));
+        }
+
+        contextMenu.Items.Add(_currentAnimationMenuItem);
+        contextMenu.Items.Add(new Forms.ToolStripSeparator());
+        contextMenu.Items.Add(frameStylesMenu);
+        contextMenu.Items.Add(colorPalettesMenu);
+        contextMenu.Items.Add(builtInAnimationsMenu);
+        contextMenu.Items.Add("Load Ascii-Motion Export...", null, (_, _) => LoadAnimationFromFile());
+        contextMenu.Items.Add("Reload Animation", null, (_, _) => ReloadAnimation());
+        contextMenu.Items.Add("Open Animation Folder", null, (_, _) => OpenAnimationFolder());
+        contextMenu.Items.Add("Run Crash Triage Snapshot", null, async (_, _) => await RunCrashTriageSnapshotAsync());
+        contextMenu.Items.Add("Open Logs Folder", null, (_, _) => OpenLogsFolder());
+        contextMenu.Items.Add(new Forms.ToolStripSeparator());
+        contextMenu.Items.Add("Show / Hide", null, (_, _) => ToggleWidgetVisibility());
+        contextMenu.Items.Add(new Forms.ToolStripSeparator());
+        contextMenu.Items.Add("Exit", null, (_, _) => Shutdown());
+
+        var notifyIcon = new Forms.NotifyIcon
+        {
+            ContextMenuStrip = contextMenu,
+            Icon = Drawing.SystemIcons.Application,
+            Text = "Desktop Copilot",
+            Visible = true
+        };
+
+        notifyIcon.DoubleClick += (_, _) => ToggleWidgetVisibility();
+        UpdateCurrentAnimationMenuItem();
+        return notifyIcon;
+    }
+
+    private void ToggleWidgetVisibility()
+    {
+        if (MainWindow is null)
+        {
+            return;
+        }
+
+        if (MainWindow.IsVisible)
+        {
+            MainWindow.Hide();
+            return;
+        }
+
+        MainWindow.Show();
+        MainWindow.Activate();
+    }
+
+    private void LoadAnimationFromFile()
+    {
+        if (MainWindow is not MainWindow window)
+        {
+            return;
+        }
+
+        try
+        {
+            var loadedPath = window.PromptForAnimationAndLoad();
+            if (!string.IsNullOrWhiteSpace(loadedPath))
+            {
+                UpdateCurrentAnimationMenuItem();
+                ShowTrayMessage("Animation loaded", window.GetCurrentAnimationDisplayName());
+            }
+        }
+        catch (Exception exception)
+        {
+            ShowTrayMessage("Animation load failed", exception.Message, Forms.ToolTipIcon.Error);
+        }
+    }
+
+    private void ReloadAnimation()
+    {
+        if (MainWindow is not MainWindow window)
+        {
+            return;
+        }
+
+        try
+        {
+            var reloadedPath = window.ReloadAnimation();
+            UpdateCurrentAnimationMenuItem();
+            if (!string.IsNullOrWhiteSpace(reloadedPath))
+            {
+                ShowTrayMessage("Animation loaded", window.GetCurrentAnimationDisplayName());
+                return;
+            }
+
+            ShowTrayMessage("Animation loaded", "Built-in animation reloaded.");
+        }
+        catch (Exception exception)
+        {
+            ShowTrayMessage("Animation reload failed", exception.Message, Forms.ToolTipIcon.Error);
+        }
+    }
+
+    private void OpenAnimationFolder()
+    {
+        var animationDirectory = AsciiMotionAnimationLoader.GetAnimationDirectory();
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = "explorer.exe",
+            Arguments = $"\"{animationDirectory}\"",
+            UseShellExecute = true
+        });
+    }
+
+    private void OpenLogsFolder()
+    {
+        var logsDirectory = AppLog.GetLogsDirectory();
+        Directory.CreateDirectory(logsDirectory);
+
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = "explorer.exe",
+            Arguments = $"\"{logsDirectory}\"",
+            UseShellExecute = true
+        });
+    }
+
+    private async Task RunCrashTriageSnapshotAsync()
+    {
+        try
+        {
+            var report = await _crashTriageService.CaptureAsync(CancellationToken.None);
+            var reportPath = _crashTriageService.SaveReport(report);
+            ShowTrayMessage(
+                "Crash triage saved",
+                $"{_crashTriageService.BuildSnapshotSummary(report)} Saved to {Path.GetFileName(reportPath)}.");
+        }
+        catch (Exception exception)
+        {
+            AppLog.Error("Crash triage snapshot failed.", exception);
+            ShowTrayMessage("Crash triage failed", exception.Message, Forms.ToolTipIcon.Error);
+        }
+    }
+
+    private void ShowTrayMessage(string title, string text, Forms.ToolTipIcon icon = Forms.ToolTipIcon.Info)
+    {
+        _notifyIcon?.ShowBalloonTip(3000, title, text, icon);
+    }
+
+    private void UseBuiltInAnimation(BuiltInAnimationPreset preset)
+    {
+        if (MainWindow is not MainWindow window)
+        {
+            return;
+        }
+
+        try
+        {
+            var animationName = window.UseBuiltInAnimation(preset);
+            UpdateCurrentAnimationMenuItem();
+            ShowTrayMessage("Animation selected", animationName);
+        }
+        catch (Exception exception)
+        {
+            ShowTrayMessage("Animation change failed", exception.Message, Forms.ToolTipIcon.Error);
+        }
+    }
+
+    private void UseFrameStyle(FrameStylePreset preset)
+    {
+        if (MainWindow is not MainWindow window)
+        {
+            return;
+        }
+
+        try
+        {
+            var styleName = window.UseFrameStyle(preset);
+            ShowTrayMessage("Frame style selected", styleName);
+        }
+        catch (Exception exception)
+        {
+            ShowTrayMessage("Frame style change failed", exception.Message, Forms.ToolTipIcon.Error);
+        }
+    }
+
+    private void UseColorPalette(ColorPalettePreset preset)
+    {
+        if (MainWindow is not MainWindow window)
+        {
+            return;
+        }
+
+        try
+        {
+            var paletteName = window.UseColorPalette(preset);
+            ShowTrayMessage("Color palette selected", paletteName);
+        }
+        catch (Exception exception)
+        {
+            ShowTrayMessage("Color palette change failed", exception.Message, Forms.ToolTipIcon.Error);
+        }
+    }
+
+    private void UpdateCurrentAnimationMenuItem()
+    {
+        if (_currentAnimationMenuItem is null
+            || MainWindow is not MainWindow window)
+        {
+            return;
+        }
+
+        _currentAnimationMenuItem.Text = $"Current Animation: {window.GetCurrentAnimationDisplayName()}";
+    }
+}
+
