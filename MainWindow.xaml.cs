@@ -10,6 +10,9 @@ using Win32OpenFileDialog = Microsoft.Win32.OpenFileDialog;
 using WpfColor = System.Windows.Media.Color;
 using WpfColorConverter = System.Windows.Media.ColorConverter;
 using WpfMouseEventArgs = System.Windows.Input.MouseEventArgs;
+using WpfDataFormats = System.Windows.DataFormats;
+using WpfDragDropEffects = System.Windows.DragDropEffects;
+using WpfDragEventArgs = System.Windows.DragEventArgs;
 using WpfPoint = System.Windows.Point;
 
 namespace DesktopCopilot;
@@ -333,6 +336,61 @@ public partial class MainWindow : Window
         _awaitingSpeechResult = false;
         _speechResultTimer.Stop();
         _ = Dispatcher.InvokeAsync(() => _ = HandleCaptureFailureAsync(e));
+    }
+
+    private void Window_DragOver(object sender, WpfDragEventArgs e)
+    {
+        if (e.Data.GetDataPresent(WpfDataFormats.FileDrop))
+        {
+            e.Effects = WpfDragDropEffects.Copy;
+            e.Handled = true;
+            return;
+        }
+
+        e.Effects = WpfDragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void Window_Drop(object sender, WpfDragEventArgs e)
+    {
+        if (!e.Data.GetDataPresent(WpfDataFormats.FileDrop))
+        {
+            return;
+        }
+
+        var paths = e.Data.GetData(WpfDataFormats.FileDrop) as string[];
+        if (paths is null || paths.Length == 0)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        _ = Dispatcher.InvokeAsync(() => _ = ProcessFileDropAsync(paths));
+    }
+
+    private async Task ProcessFileDropAsync(string[] filePaths)
+    {
+        AppLog.Info($"Processing file drop count={filePaths.Length} paths=[{string.Join(", ", filePaths)}]");
+        ApplyVisualState(WidgetState.Executing);
+        await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Render);
+
+        try
+        {
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(120));
+            var response = await _copilotCliService.ExecuteFileDropAsync(filePaths, timeout.Token);
+
+            if (!string.IsNullOrWhiteSpace(response))
+            {
+                await SpeakAsync(response);
+            }
+
+            ApplyVisualState(WidgetState.Idle);
+        }
+        catch (Exception exception)
+        {
+            AppLog.Error("ProcessFileDropAsync failed.", exception);
+            await HandlePipelineFailureAsync("I couldn't process the dropped files.");
+        }
     }
 
     private async Task ProcessTranscriptAsync(string transcript, float? confidence)

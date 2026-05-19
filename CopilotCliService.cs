@@ -14,6 +14,37 @@ public sealed class CopilotCliService
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
     }
 
+    public async Task<string> ExecuteFileDropAsync(string[] filePaths, CancellationToken cancellationToken)
+    {
+        AppLog.Info($"CopilotCliService.ExecuteFileDropAsync count={filePaths.Length}");
+        var prompt = BuildFileDropPrompt(filePaths);
+        var response = await RunCopilotAsync(prompt, useResume: true, cancellationToken);
+        if (response.ExitCode == 0)
+        {
+            var normalized = NormalizeResponse(response.Stdout);
+            AppLog.Info($"Copilot CLI file drop completed via resume. Response=\"{normalized}\"");
+            return normalized;
+        }
+
+        if (!string.IsNullOrWhiteSpace(response.Stderr)
+            && response.Stderr.Contains(MissingSessionMarker, StringComparison.OrdinalIgnoreCase))
+        {
+            AppLog.Info("Copilot CLI named session not found. Creating a new named session.");
+            var firstRunResponse = await RunCopilotAsync(prompt, useResume: false, cancellationToken);
+            if (firstRunResponse.ExitCode == 0)
+            {
+                var normalized = NormalizeResponse(firstRunResponse.Stdout);
+                AppLog.Info($"Copilot CLI file drop completed via new named session. Response=\"{normalized}\"");
+                return normalized;
+            }
+
+            ThrowFromResponse(firstRunResponse);
+        }
+
+        ThrowFromResponse(response);
+        return string.Empty;
+    }
+
     public async Task<string> ExecuteRequestAsync(string transcript, float? confidence, CancellationToken cancellationToken)
     {
         AppLog.Info($"CopilotCliService.ExecuteRequestAsync transcript=\"{transcript}\" confidence={confidence?.ToString("F2") ?? "n/a"}");
@@ -107,6 +138,21 @@ public sealed class CopilotCliService
             process.ExitCode,
             await stdoutTask,
             await stderrTask);
+    }
+
+    private static string BuildFileDropPrompt(string[] filePaths)
+    {
+        var fileList = string.Join("\n", filePaths.Select(p => $"- {p}"));
+        return $$"""
+            You are the background Copilot actor behind a Windows 11 desktop widget.
+            The user dropped the following file(s) onto the widget:
+
+            {{fileList}}
+
+            Read and inspect the file(s). If there is something actionable, do it.
+            Otherwise summarize what you see in one or two short sentences suitable for speech.
+            Do not include markdown fences, JSON, or bullet lists in your reply unless absolutely necessary.
+            """;
     }
 
     private static string BuildPrompt(string transcript, float? confidence, string? crashTriageContext)
