@@ -19,7 +19,7 @@ public partial class MainWindow : Window
     private static readonly AnimationSequence DefaultAnimation = AnimationPresets.Get(BuiltInAnimationPreset.SignalBloom);
     private const string ReleaseCueSoundPath = @"C:\Windows\Media\Speech On.wav";
     private const bool AnimationPaused = false;
-    private const double DefaultWidgetSize = 200;
+    private const double DefaultWidgetSize = 248;
     private const double DragThreshold = 12;
     private const double FrameContentPadding = 6;
 
