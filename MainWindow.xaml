@@ -12,6 +12,7 @@
         AllowDrop="True"
         PreviewDragOver="Window_DragOver"
         PreviewDrop="Window_Drop"
+        PreviewMouseLeftButtonDown="Window_MouseLeftButtonDown"
         PreviewMouseLeftButtonUp="Window_MouseLeftButtonUp"
         PreviewMouseMove="Window_MouseMove"
         LostMouseCapture="Window_LostMouseCapture"
