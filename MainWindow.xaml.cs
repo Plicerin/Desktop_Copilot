@@ -20,6 +20,7 @@ public partial class MainWindow : Window
     private const string ReleaseCueSoundPath = @"C:\Windows\Media\Speech On.wav";
     private const bool AnimationPaused = false;
     private const double DefaultWidgetSize = 248;
+    private const int CanvasMaxRows = 40;
     private const double DragThreshold = 12;
     private const double FrameContentPadding = 6;
 
@@ -133,7 +134,8 @@ public partial class MainWindow : Window
             .Replace("\r\n", "\n", StringComparison.Ordinal)
             .Split('\n');
 
-        for (var y = 0; y < lines.Length; y++)
+        var lineCount = Math.Min(lines.Length, CanvasMaxRows);
+        for (var y = 0; y < lineCount; y++)
         {
             if (y > 0)
             {
