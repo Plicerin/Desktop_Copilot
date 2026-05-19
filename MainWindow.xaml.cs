@@ -41,6 +41,8 @@ public partial class MainWindow : Window
     private WpfPoint _pressStart;
     private AnimationFrame? _lastRenderedFrame;
     private string? _loadedAnimationPath;
+    private string? _htmlAnimationPath;
+    private HtmlAnimationWindow? _htmlWindow;
     private BuiltInAnimationPreset _builtInAnimationPreset;
     private FrameStylePreset _frameStylePreset;
     private ColorPalettePreset _colorPalettePreset;
@@ -49,7 +51,14 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         AppLog.Info("MainWindow constructed.");
-        OrbContentHost.SizeChanged += (_, _) => UpdateOrbContentClip();
+        OrbContentHost.SizeChanged += (_, _) => { UpdateOrbContentClip(); SyncHtmlWindowPosition(); };
+        LocationChanged += (_, _) => SyncHtmlWindowPosition();
+        IsVisibleChanged += (_, _) =>
+        {
+            if (_htmlWindow is null) return;
+            if (IsVisible) _htmlWindow.Show();
+            else _htmlWindow.Hide();
+        };
 
         Loaded += OnLoaded;
         _copilotCliService = new CopilotCliService();
@@ -365,6 +374,13 @@ public partial class MainWindow : Window
         }
 
         e.Handled = true;
+
+        if (paths is [var singlePath] && singlePath.EndsWith(".html", StringComparison.OrdinalIgnoreCase))
+        {
+            _ = Dispatcher.InvokeAsync(() => _ = LoadHtmlAnimationAsync(singlePath));
+            return;
+        }
+
         _ = Dispatcher.InvokeAsync(() => _ = ProcessFileDropAsync(paths));
     }
 
@@ -516,10 +532,10 @@ public partial class MainWindow : Window
         var openFileDialog = new Win32OpenFileDialog
         {
             CheckFileExists = true,
-            Filter = "Ascii-Motion exports (*.json;*.txt)|*.json;*.txt|JSON exports (*.json)|*.json|Text exports (*.txt)|*.txt",
+            Filter = "Animation files (*.json;*.txt;*.html)|*.json;*.txt;*.html|Ascii-Motion exports (*.json;*.txt)|*.json;*.txt|HTML animations (*.html)|*.html",
             InitialDirectory = AsciiMotionAnimationLoader.GetAnimationDirectory(),
             Multiselect = false,
-            Title = "Load Ascii-Motion Export"
+            Title = "Load Animation"
         };
 
         if (openFileDialog.ShowDialog(this) != true)
@@ -527,12 +543,25 @@ public partial class MainWindow : Window
             return null;
         }
 
-        LoadAnimationFromPath(openFileDialog.FileName);
+        var path = openFileDialog.FileName;
+        if (path.EndsWith(".html", StringComparison.OrdinalIgnoreCase))
+        {
+            _ = LoadHtmlAnimationAsync(path);
+            return path;
+        }
+
+        LoadAnimationFromPath(path);
         return _loadedAnimationPath;
     }
 
     public string? ReloadAnimation()
     {
+        if (!string.IsNullOrWhiteSpace(_htmlAnimationPath) && File.Exists(_htmlAnimationPath))
+        {
+            _ = LoadHtmlAnimationAsync(_htmlAnimationPath);
+            return _htmlAnimationPath;
+        }
+
         if (!string.IsNullOrWhiteSpace(_loadedAnimationPath) && File.Exists(_loadedAnimationPath))
         {
             LoadAnimationFromPath(_loadedAnimationPath);
@@ -547,6 +576,64 @@ public partial class MainWindow : Window
 
         UseBuiltInAnimation(_builtInAnimationPreset);
         return null;
+    }
+
+    private async Task LoadHtmlAnimationAsync(string path)
+    {
+        AppLog.Info($"LoadHtmlAnimationAsync path=\"{path}\"");
+        UnloadHtmlAnimation();
+        _htmlAnimationPath = path;
+
+        _animationTimer.Stop();
+        AnimationViewbox.Visibility = Visibility.Collapsed;
+
+        _htmlWindow = new HtmlAnimationWindow { Owner = this };
+        SyncHtmlWindowPosition();
+        _htmlWindow.Show();
+
+        try
+        {
+            await _htmlWindow.NavigateToAsync(path);
+        }
+        catch (Exception ex)
+        {
+            AppLog.Error("LoadHtmlAnimationAsync navigation failed.", ex);
+            UnloadHtmlAnimation();
+        }
+    }
+
+    private void UnloadHtmlAnimation()
+    {
+        if (_htmlAnimationPath is null && _htmlWindow is null) return;
+
+        _htmlAnimationPath = null;
+        _htmlWindow?.Close();
+        _htmlWindow = null;
+
+        AnimationViewbox.Visibility = Visibility.Visible;
+        if (!AnimationPaused)
+        {
+            _animationTimer.Start();
+        }
+    }
+
+    private void SyncHtmlWindowPosition()
+    {
+        if (_htmlWindow is null || OrbContentHost.ActualWidth <= 0) return;
+
+        try
+        {
+            var dpi = VisualTreeHelper.GetDpi(this);
+            var origin = OrbContentHost.PointToScreen(new WpfPoint(0, 0));
+            _htmlWindow.Left = origin.X / dpi.DpiScaleX;
+            _htmlWindow.Top = origin.Y / dpi.DpiScaleY;
+            _htmlWindow.Width = OrbContentHost.ActualWidth;
+            _htmlWindow.Height = OrbContentHost.ActualHeight;
+        }
+        catch (InvalidOperationException)
+        {
+            // Visual not yet in tree
+        }
     }
 
     private void LoadStartupAnimation()
@@ -590,6 +677,11 @@ public partial class MainWindow : Window
 
     public string GetCurrentAnimationDisplayName()
     {
+        if (!string.IsNullOrWhiteSpace(_htmlAnimationPath))
+        {
+            return Path.GetFileNameWithoutExtension(_htmlAnimationPath);
+        }
+
         return !string.IsNullOrWhiteSpace(_loadedAnimationPath)
             ? AsciiMotionAnimationLoader.GetAnimationDisplayName(_loadedAnimationPath)
             : AnimationPresets.GetDisplayName(_builtInAnimationPreset);
@@ -597,6 +689,7 @@ public partial class MainWindow : Window
 
     private void ApplyAnimationSequence(AnimationSequence sequence, string? loadedPath)
     {
+        UnloadHtmlAnimation();
         _animationSequence = sequence;
         _loadedAnimationPath = loadedPath;
         _frameIndex = 0;
