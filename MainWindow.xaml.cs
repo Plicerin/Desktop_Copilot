@@ -374,13 +374,6 @@ public partial class MainWindow : Window
         }
 
         e.Handled = true;
-
-        if (paths is [var singlePath] && singlePath.EndsWith(".html", StringComparison.OrdinalIgnoreCase))
-        {
-            _ = Dispatcher.InvokeAsync(() => _ = LoadHtmlAnimationAsync(singlePath));
-            return;
-        }
-
         _ = Dispatcher.InvokeAsync(() => _ = ProcessFileDropAsync(paths));
     }
 
@@ -525,6 +518,18 @@ public partial class MainWindow : Window
         AppLog.Info($"SpeakAsync message=\"{message}\"");
         ApplyVisualState(WidgetState.Speaking);
         await _ttsService.SpeakAsync(message);
+    }
+
+    public string? LoadAnimationFile(string path)
+    {
+        if (path.EndsWith(".html", StringComparison.OrdinalIgnoreCase))
+        {
+            _ = LoadHtmlAnimationAsync(path);
+            return path;
+        }
+
+        LoadAnimationFromPath(path);
+        return _loadedAnimationPath;
     }
 
     public string? PromptForAnimationAndLoad()

@@ -11,6 +11,7 @@ public partial class App : Wpf.Application
 {
     private Forms.NotifyIcon? _notifyIcon;
     private Forms.ToolStripMenuItem? _currentAnimationMenuItem;
+    private Forms.ToolStripMenuItem? _fileAnimationsMenu;
     private readonly CrashTriageService _crashTriageService = new();
 
     protected override void OnStartup(Wpf.StartupEventArgs e)
@@ -76,12 +77,15 @@ public partial class App : Wpf.Application
                 (_, _) => UseBuiltInAnimation(capturedPreset));
         }
 
+        _fileAnimationsMenu = new Forms.ToolStripMenuItem("File Animations") { Enabled = false };
+
         contextMenu.Items.Add(_currentAnimationMenuItem);
         contextMenu.Items.Add(new Forms.ToolStripSeparator());
         contextMenu.Items.Add(frameStylesMenu);
         contextMenu.Items.Add(colorPalettesMenu);
         contextMenu.Items.Add(builtInAnimationsMenu);
-        contextMenu.Items.Add("Load Ascii-Motion Export...", null, (_, _) => LoadAnimationFromFile());
+        contextMenu.Items.Add(_fileAnimationsMenu);
+        contextMenu.Items.Add("Load Animation...", null, (_, _) => LoadAnimationFromFile());
         contextMenu.Items.Add("Reload Animation", null, (_, _) => ReloadAnimation());
         contextMenu.Items.Add("Open Animation Folder", null, (_, _) => OpenAnimationFolder());
         contextMenu.Items.Add("Run Crash Triage Snapshot", null, async (_, _) => await RunCrashTriageSnapshotAsync());
@@ -106,6 +110,7 @@ public partial class App : Wpf.Application
         };
 
         notifyIcon.DoubleClick += (_, _) => ToggleWidgetVisibility();
+        contextMenu.Opening += (_, _) => RefreshFileAnimationsMenu();
         UpdateCurrentAnimationMenuItem();
         return notifyIcon;
     }
@@ -125,6 +130,50 @@ public partial class App : Wpf.Application
 
         MainWindow.Show();
         MainWindow.Activate();
+    }
+
+    private void RefreshFileAnimationsMenu()
+    {
+        if (_fileAnimationsMenu is null) return;
+
+        _fileAnimationsMenu.DropDownItems.Clear();
+        var dir = AsciiMotionAnimationLoader.GetAnimationDirectory();
+
+        if (Directory.Exists(dir))
+        {
+            var files = Directory.GetFiles(dir)
+                .Where(f => f.EndsWith(".json", StringComparison.OrdinalIgnoreCase)
+                         || f.EndsWith(".txt", StringComparison.OrdinalIgnoreCase)
+                         || f.EndsWith(".html", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(f => Path.GetFileName(f));
+
+            foreach (var file in files)
+            {
+                var capturedFile = file;
+                _fileAnimationsMenu.DropDownItems.Add(
+                    Path.GetFileNameWithoutExtension(file),
+                    null,
+                    (_, _) => LoadFileAnimation(capturedFile));
+            }
+        }
+
+        _fileAnimationsMenu.Enabled = _fileAnimationsMenu.DropDownItems.Count > 0;
+    }
+
+    private void LoadFileAnimation(string path)
+    {
+        if (MainWindow is not MainWindow window) return;
+
+        try
+        {
+            window.LoadAnimationFile(path);
+            UpdateCurrentAnimationMenuItem();
+            ShowTrayMessage("Animation loaded", window.GetCurrentAnimationDisplayName());
+        }
+        catch (Exception exception)
+        {
+            ShowTrayMessage("Animation load failed", exception.Message, Forms.ToolTipIcon.Error);
+        }
     }
 
     private void LoadAnimationFromFile()
