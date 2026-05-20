@@ -54,6 +54,7 @@ public partial class MainWindow : Window
     private int _kittyZoomSourceH;
     private int _kittyCropW;
     private int _kittyCropH;
+    private int _kittyPanX;
     private bool _kittyZoomMode;
     private string? _kittyZoomSourcePath;
 
@@ -675,6 +676,7 @@ public partial class MainWindow : Window
 
         const int stepW = 5;
         const int stepH = 3;
+        const int stepPan = 2;
 
         switch (e.Key)
         {
@@ -687,6 +689,16 @@ public partial class MainWindow : Window
             case Key.Down:
                 _kittyCropW = Math.Max(_kittyCropW - stepW, 10);
                 _kittyCropH = Math.Max(_kittyCropH - stepH, 5);
+                ApplyKittyCrop();
+                e.Handled = true;
+                break;
+            case Key.Left:
+                _kittyPanX = Math.Max(_kittyPanX - stepPan, -(_kittyZoomSourceW - _kittyCropW) / 2);
+                ApplyKittyCrop();
+                e.Handled = true;
+                break;
+            case Key.Right:
+                _kittyPanX = Math.Min(_kittyPanX + stepPan, (_kittyZoomSourceW - _kittyCropW) / 2);
                 ApplyKittyCrop();
                 e.Handled = true;
                 break;
@@ -710,6 +722,7 @@ public partial class MainWindow : Window
         _kittyZoomSourcePath = sourcePath;
         _kittyCropW = Math.Min(initialCropW, _kittyZoomSourceW);
         _kittyCropH = Math.Min(initialCropH, _kittyZoomSourceH);
+        _kittyPanX = 0;
         _kittyZoomMode = true;
         ApplyKittyCrop();
         Activate();
@@ -720,7 +733,7 @@ public partial class MainWindow : Window
     {
         if (_kittyZoomSourceFrames is null) return;
 
-        int x0 = Math.Max(0, (_kittyZoomSourceW - _kittyCropW) / 2);
+        int x0 = Math.Max(0, Math.Min((_kittyZoomSourceW - _kittyCropW) / 2 + _kittyPanX, _kittyZoomSourceW - _kittyCropW));
         int y0 = Math.Max(0, (_kittyZoomSourceH - _kittyCropH) / 2);
 
         var animFrames = new List<AnimationFrame>();
@@ -742,7 +755,7 @@ public partial class MainWindow : Window
     {
         if (_kittyZoomSourceFrames is null || _kittyZoomSourcePath is null) return;
 
-        int x0 = Math.Max(0, (_kittyZoomSourceW - _kittyCropW) / 2);
+        int x0 = Math.Max(0, Math.Min((_kittyZoomSourceW - _kittyCropW) / 2 + _kittyPanX, _kittyZoomSourceW - _kittyCropW));
         int y0 = Math.Max(0, (_kittyZoomSourceH - _kittyCropH) / 2);
 
         var frames = new List<string>();
