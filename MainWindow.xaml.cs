@@ -47,6 +47,7 @@ public partial class MainWindow : Window
     private BuiltInAnimationPreset _builtInAnimationPreset;
     private FrameStylePreset _frameStylePreset;
     private ColorPalettePreset _colorPalettePreset;
+    private double? _backgroundFrameContentInset;
 
     // Kitty zoom mode
     private List<string>? _kittyZoomSourceFrames;
@@ -892,15 +893,31 @@ public partial class MainWindow : Window
 
     private void LoadFrameImage()
     {
-        AppLog.Info("PNG frame disabled. Using vector frame styles.");
-        PngFrameImage.Source = null;
-        PngFrameImage.Visibility = Visibility.Collapsed;
+        try
+        {
+            var uri = new Uri("pack://application:,,,/Resources/frame.png", UriKind.Absolute);
+            var bitmap = new System.Windows.Media.Imaging.BitmapImage(uri);
+            BackgroundFrameImage.Source = bitmap;
+            BackgroundFrameImage.Visibility = Visibility.Visible;
+            AnimationBackdrop.Visibility = Visibility.Collapsed;
+            _backgroundFrameContentInset = 44;
+        }
+        catch (Exception ex)
+        {
+            AppLog.Error("Failed to load frame image.", ex);
+            BackgroundFrameImage.Source = null;
+            BackgroundFrameImage.Visibility = Visibility.Collapsed;
+            AnimationBackdrop.Visibility = Visibility.Visible;
+            _backgroundFrameContentInset = null;
+        }
+
         ApplyFrameStyle(WidgetAppearanceCatalog.GetPalette(_colorPalettePreset));
     }
 
     private void ApplyFrameStyle(WidgetColorPalette palette)
     {
         var style = WidgetAppearanceCatalog.GetFrameStyle(_frameStylePreset);
+        var hasBackgroundImage = BackgroundFrameImage.Visibility == Visibility.Visible;
         var usePngFrame = style.UsePngFrame && PngFrameImage.Source is not null;
 
         PngFrameImage.Visibility = usePngFrame ? Visibility.Visible : Visibility.Collapsed;
@@ -911,14 +928,14 @@ public partial class MainWindow : Window
             pngFrameScale.ScaleY = style.PngScale;
         }
 
-        OuterShell.Visibility = style.ShowOuterShell ? Visibility.Visible : Visibility.Collapsed;
+        OuterShell.Visibility = (!hasBackgroundImage && style.ShowOuterShell) ? Visibility.Visible : Visibility.Collapsed;
         OuterShell.Margin = new Thickness(style.OuterMargin);
         OuterShell.StrokeThickness = style.OuterStrokeThickness;
         OuterShell.Opacity = style.ShellOpacity;
 
         ConfigureRing(
             FrameAccentRing,
-            style.ShowAccentRing,
+            !hasBackgroundImage && style.ShowAccentRing,
             style.AccentMargin,
             style.AccentStrokeThickness,
             style.AccentOpacity,
@@ -926,7 +943,7 @@ public partial class MainWindow : Window
 
         ConfigureRing(
             FrameInnerRing,
-            style.ShowInnerRing,
+            !hasBackgroundImage && style.ShowInnerRing,
             style.InnerMargin,
             style.InnerStrokeThickness,
             style.InnerOpacity,
@@ -1118,7 +1135,8 @@ public partial class MainWindow : Window
 
     private void UpdateOrbContentLayout(FrameStyleSpec style)
     {
-        var contentInset = Math.Ceiling(GetInnermostFrameInset(style) + FrameContentPadding);
+        var contentInset = _backgroundFrameContentInset
+            ?? Math.Ceiling(GetInnermostFrameInset(style) + FrameContentPadding);
         OrbContentHost.Margin = new Thickness(contentInset);
         UpdateOrbContentClip();
     }

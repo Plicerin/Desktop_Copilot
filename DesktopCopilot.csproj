@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <Resource Include="tray.ico" />
+    <Resource Include="Resources\frame.png" />
   </ItemGroup>
 
 </Project>
