@@ -33,6 +33,7 @@ public partial class MainWindow : Window
     private readonly EdgeTtsService _ttsService;
     private readonly SpeechCaptureService _speechCaptureService;
     private readonly Skills.SkillRouter _skillRouter = new();
+    private readonly Skills.ActionSkillRouter _actionSkillRouter;
     private readonly DailyHealthReportService _dailyHealthReport;
     private AnimationSequence _animationSequence;
     private TimeSpan _currentFrameDuration;
@@ -85,6 +86,7 @@ public partial class MainWindow : Window
         _speechCaptureService.CaptureFailed += OnCaptureFailed;
         _dailyHealthReport = new DailyHealthReportService();
         _dailyHealthReport.ReportReady += OnDailyReportReady;
+        _actionSkillRouter = new Skills.ActionSkillRouter(SpeakAsync);
         _builtInAnimationPreset = BuiltInAnimationPreset.SignalBloom;
         _frameStylePreset = FrameStylePreset.MinimalGlass;
         _colorPalettePreset = ColorPalettePreset.Copilot;
@@ -490,6 +492,17 @@ public partial class MainWindow : Window
         try
         {
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(90));
+
+            var actionSkill = _actionSkillRouter.Match(transcript);
+            if (actionSkill is not null)
+            {
+                AppLog.Info($"Action skill matched: {actionSkill.GetType().Name}");
+                var actionResponse = await actionSkill.ExecuteAsync(transcript, timeout.Token);
+                if (!string.IsNullOrWhiteSpace(actionResponse))
+                    await SpeakAsync(actionResponse);
+                ApplyVisualState(WidgetState.Idle);
+                return;
+            }
 
             var skill = _skillRouter.Match(transcript);
             string response;
