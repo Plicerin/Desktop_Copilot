@@ -8,101 +8,88 @@ public sealed class CopilotCliService
     private const string SessionName = "DesktopCopilot Background Actor";
     private const string MissingSessionMarker = "No session, task, or name matched";
     private readonly CrashTriageService _crashTriageService = new();
+    private bool _sessionExists;
 
     static CopilotCliService()
     {
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
     }
 
+    /// <summary>
+    /// Pre-warms the named Copilot CLI session at startup so the first real request
+    /// hits --resume instead of paying for session creation latency.
+    /// </summary>
+    public async Task WarmUpAsync()
+    {
+        AppLog.Info("CopilotCliService.WarmUpAsync: pre-warming named session.");
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+            var warmup = await RunCopilotAsync("Reply with only the word OK.", useResume: false, cts.Token);
+            _sessionExists = warmup.ExitCode == 0;
+            AppLog.Info($"CopilotCliService.WarmUpAsync: done sessionExists={_sessionExists}");
+        }
+        catch (Exception ex)
+        {
+            AppLog.Info($"CopilotCliService.WarmUpAsync: failed (non-fatal): {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Runs a prompt through the named session. Uses --resume when the session is known
+    /// to exist, and falls back to session creation on a miss — tracking state to avoid
+    /// paying the double round-trip cost on subsequent calls.
+    /// </summary>
+    private async Task<string> InvokeWithSessionAsync(string prompt, CancellationToken cancellationToken)
+    {
+        if (_sessionExists)
+        {
+            var resumeResponse = await RunCopilotAsync(prompt, useResume: true, cancellationToken);
+            if (resumeResponse.ExitCode == 0)
+                return NormalizeResponse(resumeResponse.Stdout);
+
+            // Session may have expired — fall through to recreate it.
+            if (!string.IsNullOrWhiteSpace(resumeResponse.Stderr)
+                && resumeResponse.Stderr.Contains(MissingSessionMarker, StringComparison.OrdinalIgnoreCase))
+            {
+                AppLog.Info("Copilot CLI session expired. Recreating.");
+                _sessionExists = false;
+            }
+            else
+            {
+                ThrowFromResponse(resumeResponse);
+            }
+        }
+
+        AppLog.Info($"Copilot CLI: creating new named session. sessionWasKnown={_sessionExists}");
+        var newResponse = await RunCopilotAsync(prompt, useResume: false, cancellationToken);
+        if (newResponse.ExitCode == 0)
+        {
+            _sessionExists = true;
+            return NormalizeResponse(newResponse.Stdout);
+        }
+
+        ThrowFromResponse(newResponse);
+        return string.Empty;
+    }
+
     public async Task<string> ExecuteFileDropAsync(string[] filePaths, CancellationToken cancellationToken)
     {
         AppLog.Info($"CopilotCliService.ExecuteFileDropAsync count={filePaths.Length}");
         var prompt = BuildFileDropPrompt(filePaths);
-        var response = await RunCopilotAsync(prompt, useResume: true, cancellationToken);
-        if (response.ExitCode == 0)
-        {
-            var normalized = NormalizeResponse(response.Stdout);
-            AppLog.Info($"Copilot CLI file drop completed via resume. Response=\"{normalized}\"");
-            return normalized;
-        }
-
-        if (!string.IsNullOrWhiteSpace(response.Stderr)
-            && response.Stderr.Contains(MissingSessionMarker, StringComparison.OrdinalIgnoreCase))
-        {
-            AppLog.Info("Copilot CLI named session not found. Creating a new named session.");
-            var firstRunResponse = await RunCopilotAsync(prompt, useResume: false, cancellationToken);
-            if (firstRunResponse.ExitCode == 0)
-            {
-                var normalized = NormalizeResponse(firstRunResponse.Stdout);
-                AppLog.Info($"Copilot CLI file drop completed via new named session. Response=\"{normalized}\"");
-                return normalized;
-            }
-
-            ThrowFromResponse(firstRunResponse);
-        }
-
-        ThrowFromResponse(response);
-        return string.Empty;
+        return await InvokeWithSessionAsync(prompt, cancellationToken);
     }
 
     public async Task<string> ExecuteDailyReportAsync(string aggregatedData, CancellationToken cancellationToken)
     {
         AppLog.Info("CopilotCliService.ExecuteDailyReportAsync");
-        var prompt = BuildDailyReportPrompt(aggregatedData);
-        var response = await RunCopilotAsync(prompt, useResume: true, cancellationToken);
-        if (response.ExitCode == 0)
-        {
-            var normalized = NormalizeResponse(response.Stdout);
-            AppLog.Info($"Daily report completed. Response=\"{normalized}\"");
-            return normalized;
-        }
-
-        if (!string.IsNullOrWhiteSpace(response.Stderr)
-            && response.Stderr.Contains(MissingSessionMarker, StringComparison.OrdinalIgnoreCase))
-        {
-            var firstRunResponse = await RunCopilotAsync(prompt, useResume: false, cancellationToken);
-            if (firstRunResponse.ExitCode == 0)
-            {
-                var normalized = NormalizeResponse(firstRunResponse.Stdout);
-                AppLog.Info($"Daily report completed via new session. Response=\"{normalized}\"");
-                return normalized;
-            }
-
-            ThrowFromResponse(firstRunResponse);
-        }
-
-        ThrowFromResponse(response);
-        return string.Empty;
+        return await InvokeWithSessionAsync(BuildDailyReportPrompt(aggregatedData), cancellationToken);
     }
 
     public async Task<string> ExecuteSkillAsync(string skillName, string rawData, CancellationToken cancellationToken)
     {
         AppLog.Info($"CopilotCliService.ExecuteSkillAsync skill=\"{skillName}\"");
-        var prompt = BuildSkillPrompt(skillName, rawData);
-        var response = await RunCopilotAsync(prompt, useResume: true, cancellationToken);
-        if (response.ExitCode == 0)
-        {
-            var normalized = NormalizeResponse(response.Stdout);
-            AppLog.Info($"Skill \"{skillName}\" completed. Response=\"{normalized}\"");
-            return normalized;
-        }
-
-        if (!string.IsNullOrWhiteSpace(response.Stderr)
-            && response.Stderr.Contains(MissingSessionMarker, StringComparison.OrdinalIgnoreCase))
-        {
-            var firstRunResponse = await RunCopilotAsync(prompt, useResume: false, cancellationToken);
-            if (firstRunResponse.ExitCode == 0)
-            {
-                var normalized = NormalizeResponse(firstRunResponse.Stdout);
-                AppLog.Info($"Skill \"{skillName}\" completed via new session. Response=\"{normalized}\"");
-                return normalized;
-            }
-
-            ThrowFromResponse(firstRunResponse);
-        }
-
-        ThrowFromResponse(response);
-        return string.Empty;
+        return await InvokeWithSessionAsync(BuildSkillPrompt(skillName, rawData), cancellationToken);
     }
 
     public async Task<string> ExecuteRequestAsync(string transcript, float? confidence, CancellationToken cancellationToken)
@@ -110,31 +97,7 @@ public sealed class CopilotCliService
         AppLog.Info($"CopilotCliService.ExecuteRequestAsync transcript=\"{transcript}\" confidence={confidence?.ToString("F2") ?? "n/a"}");
         var crashTriageContext = await BuildCrashTriageContextAsync(transcript, cancellationToken);
         var prompt = BuildPrompt(transcript, confidence, crashTriageContext);
-        var response = await RunCopilotAsync(prompt, useResume: true, cancellationToken);
-        if (response.ExitCode == 0)
-        {
-            var normalized = NormalizeResponse(response.Stdout);
-            AppLog.Info($"Copilot CLI completed via resume. Response=\"{normalized}\"");
-            return normalized;
-        }
-
-        if (!string.IsNullOrWhiteSpace(response.Stderr)
-            && response.Stderr.Contains(MissingSessionMarker, StringComparison.OrdinalIgnoreCase))
-        {
-            AppLog.Info("Copilot CLI named session not found. Creating a new named session.");
-            var firstRunResponse = await RunCopilotAsync(prompt, useResume: false, cancellationToken);
-            if (firstRunResponse.ExitCode == 0)
-            {
-                var normalized = NormalizeResponse(firstRunResponse.Stdout);
-                AppLog.Info($"Copilot CLI completed via new named session. Response=\"{normalized}\"");
-                return normalized;
-            }
-
-            ThrowFromResponse(firstRunResponse);
-        }
-
-        ThrowFromResponse(response);
-        return string.Empty;
+        return await InvokeWithSessionAsync(prompt, cancellationToken);
     }
 
     private async Task<string?> BuildCrashTriageContextAsync(string transcript, CancellationToken cancellationToken)

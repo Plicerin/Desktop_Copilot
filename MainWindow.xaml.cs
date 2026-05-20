@@ -121,6 +121,10 @@ public partial class MainWindow : Window
         {
             _animationTimer.Start();
         }
+
+        // Pre-warm the Copilot CLI named session in the background so the
+        // first real user request hits --resume instead of paying for session creation.
+        _ = Task.Run(() => _copilotCliService.WarmUpAsync());
     }
 
     private void AdvanceFrame()

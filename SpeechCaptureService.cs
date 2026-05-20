@@ -14,7 +14,7 @@ public sealed class SpeechCaptureService : IDisposable
     private const uint KeyEventKeyUp = 0x0002;
     private static readonly TimeSpan WalkieStartTimeout = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan TranscriptionTimeout = TimeSpan.FromSeconds(6);
-    private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(100);
+    private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(50);
 
     private readonly object _syncRoot = new();
     private CaptureMode? _activeMode;
