@@ -48,6 +48,15 @@ public partial class MainWindow : Window
     private FrameStylePreset _frameStylePreset;
     private ColorPalettePreset _colorPalettePreset;
 
+    // Kitty zoom mode
+    private List<string>? _kittyZoomSourceFrames;
+    private int _kittyZoomSourceW;
+    private int _kittyZoomSourceH;
+    private int _kittyCropW;
+    private int _kittyCropH;
+    private bool _kittyZoomMode;
+    private string? _kittyZoomSourcePath;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -658,6 +667,107 @@ public partial class MainWindow : Window
     {
         var sequence = AsciiMotionAnimationLoader.LoadFromFile(filePath);
         ApplyAnimationSequence(sequence, filePath);
+    }
+
+    private void Window_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (!_kittyZoomMode) return;
+
+        const int stepW = 5;
+        const int stepH = 3;
+
+        switch (e.Key)
+        {
+            case Key.Up:
+                _kittyCropW = Math.Min(_kittyCropW + stepW, _kittyZoomSourceW);
+                _kittyCropH = Math.Min(_kittyCropH + stepH, _kittyZoomSourceH);
+                ApplyKittyCrop();
+                e.Handled = true;
+                break;
+            case Key.Down:
+                _kittyCropW = Math.Max(_kittyCropW - stepW, 10);
+                _kittyCropH = Math.Max(_kittyCropH - stepH, 5);
+                ApplyKittyCrop();
+                e.Handled = true;
+                break;
+            case Key.S:
+                SaveKittyCrop();
+                e.Handled = true;
+                break;
+            case Key.Escape:
+                ExitKittyZoomMode();
+                e.Handled = true;
+                break;
+        }
+    }
+
+    public void EnterKittyZoomMode(string sourcePath, int initialCropW, int initialCropH)
+    {
+        var source = AsciiMotionAnimationLoader.LoadFromFile(sourcePath);
+        _kittyZoomSourceFrames = source.Frames.Select(f => f.Content).ToList();
+        _kittyZoomSourceW = source.CanvasWidth;
+        _kittyZoomSourceH = source.CanvasHeight;
+        _kittyZoomSourcePath = sourcePath;
+        _kittyCropW = Math.Min(initialCropW, _kittyZoomSourceW);
+        _kittyCropH = Math.Min(initialCropH, _kittyZoomSourceH);
+        _kittyZoomMode = true;
+        ApplyKittyCrop();
+        Activate();
+        Focus();
+    }
+
+    private void ApplyKittyCrop()
+    {
+        if (_kittyZoomSourceFrames is null) return;
+
+        int x0 = Math.Max(0, (_kittyZoomSourceW - _kittyCropW) / 2);
+        int y0 = Math.Max(0, (_kittyZoomSourceH - _kittyCropH) / 2);
+
+        var animFrames = new List<AnimationFrame>();
+        for (int i = 0; i < _kittyZoomSourceFrames.Count; i += 2)
+        {
+            var lines = _kittyZoomSourceFrames[i]
+                .Split('\n')
+                .Select(l => l.PadRight(_kittyZoomSourceW))
+                .Skip(y0).Take(_kittyCropH)
+                .Select(l => l.Substring(x0, Math.Min(_kittyCropW, l.Length - x0)))
+                .ToArray();
+            animFrames.Add(new AnimationFrame(string.Join("\n", lines), TimeSpan.FromMilliseconds(160)));
+        }
+
+        ApplyAnimationSequence(new AnimationSequence(animFrames, looping: true), _loadedAnimationPath);
+    }
+
+    private void SaveKittyCrop()
+    {
+        if (_kittyZoomSourceFrames is null || _kittyZoomSourcePath is null) return;
+
+        int x0 = Math.Max(0, (_kittyZoomSourceW - _kittyCropW) / 2);
+        int y0 = Math.Max(0, (_kittyZoomSourceH - _kittyCropH) / 2);
+
+        var frames = new List<string>();
+        for (int i = 0; i < _kittyZoomSourceFrames.Count; i += 2)
+        {
+            var lines = _kittyZoomSourceFrames[i]
+                .Split('\n')
+                .Select(l => l.PadRight(_kittyZoomSourceW))
+                .Skip(y0).Take(_kittyCropH)
+                .Select(l => l.Substring(x0, Math.Min(_kittyCropW, l.Length - x0)))
+                .ToArray();
+            frames.Add(string.Join("\n", lines));
+        }
+
+        var outPath = Path.Combine(Path.GetDirectoryName(_kittyZoomSourcePath)!, "widget-animation.json");
+        var json = System.Text.Json.JsonSerializer.Serialize(new { frames = frames.ToArray() });
+        File.WriteAllText(outPath, json);
+        LoadAnimationFromPath(outPath);
+        ExitKittyZoomMode();
+    }
+
+    private void ExitKittyZoomMode()
+    {
+        _kittyZoomMode = false;
+        _kittyZoomSourceFrames = null;
     }
 
     public string UseBuiltInAnimation(BuiltInAnimationPreset preset)
