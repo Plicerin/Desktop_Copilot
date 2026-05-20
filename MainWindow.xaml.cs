@@ -48,6 +48,7 @@ public partial class MainWindow : Window
     private FrameStylePreset _frameStylePreset;
     private ColorPalettePreset _colorPalettePreset;
     private double? _backgroundFrameContentInset;
+    private bool _isFrameDragActive;
 
     // Kitty zoom mode
     private List<string>? _kittyZoomSourceFrames;
@@ -235,12 +236,23 @@ public partial class MainWindow : Window
             return;
         }
 
+        _pressStart = e.GetPosition(this);
+
+        // Click on the frame border (outside the animation circle) → drag only, no speech
+        if (!OrbContentHost.IsMouseOver)
+        {
+            _isFrameDragActive = true;
+            Activate();
+            CaptureMouse();
+            e.Handled = true;
+            return;
+        }
+
         if (_widgetState is WidgetState.Thinking or WidgetState.Speaking or WidgetState.Executing)
         {
             return;
         }
 
-        _pressStart = e.GetPosition(this);
         _isListeningGestureActive = true;
         _awaitingSpeechResult = false;
         _speechResultTimer.Stop();
@@ -266,13 +278,29 @@ public partial class MainWindow : Window
 
     private void Window_MouseMove(object sender, WpfMouseEventArgs e)
     {
-        if (!_isListeningGestureActive || e.LeftButton != MouseButtonState.Pressed)
+        if (e.LeftButton != MouseButtonState.Pressed)
         {
             return;
         }
 
         var currentPosition = e.GetPosition(this);
         var delta = currentPosition - _pressStart;
+
+        if (_isFrameDragActive)
+        {
+            if (Math.Abs(delta.X) >= DragThreshold || Math.Abs(delta.Y) >= DragThreshold)
+            {
+                _isFrameDragActive = false;
+                ReleaseMouseCapture();
+                DragMove();
+            }
+            return;
+        }
+
+        if (!_isListeningGestureActive)
+        {
+            return;
+        }
 
         if (Math.Abs(delta.X) < DragThreshold && Math.Abs(delta.Y) < DragThreshold)
         {
@@ -291,7 +319,14 @@ public partial class MainWindow : Window
 
     private void Window_LostMouseCapture(object sender, WpfMouseEventArgs e)
     {
-        AppLog.Info($"Window_LostMouseCapture listeningGesture={_isListeningGestureActive}");
+        AppLog.Info($"Window_LostMouseCapture listeningGesture={_isListeningGestureActive} frameDrag={_isFrameDragActive}");
+
+        if (_isFrameDragActive)
+        {
+            _isFrameDragActive = false;
+            return;
+        }
+
         if (!_isListeningGestureActive)
         {
             return;
@@ -307,7 +342,16 @@ public partial class MainWindow : Window
 
     private void Window_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
-        AppLog.Info($"MouseLeftButtonUp listeningGesture={_isListeningGestureActive}");
+        AppLog.Info($"MouseLeftButtonUp listeningGesture={_isListeningGestureActive} frameDrag={_isFrameDragActive}");
+
+        if (_isFrameDragActive)
+        {
+            _isFrameDragActive = false;
+            ReleaseMouseCapture();
+            e.Handled = true;
+            return;
+        }
+
         if (!_isListeningGestureActive)
         {
             return;
