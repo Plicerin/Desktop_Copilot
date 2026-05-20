@@ -307,7 +307,7 @@ public partial class App : Wpf.Application
         }
     }
 
-    private void UpdateCurrentAnimationMenuItem()
+    public void UpdateCurrentAnimationMenuItem()
     {
         if (_currentAnimationMenuItem is null
             || MainWindow is not MainWindow window)

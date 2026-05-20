@@ -393,6 +393,17 @@ public partial class MainWindow : Window
         }
 
         e.Handled = true;
+
+        var animationPath = paths.FirstOrDefault(p =>
+            p.EndsWith(".json", StringComparison.OrdinalIgnoreCase) ||
+            p.EndsWith(".txt", StringComparison.OrdinalIgnoreCase));
+
+        if (animationPath is not null)
+        {
+            _ = Dispatcher.InvokeAsync(() => LoadDroppedAnimation(animationPath));
+            return;
+        }
+
         _ = Dispatcher.InvokeAsync(() => _ = ProcessFileDropAsync(paths));
     }
 
@@ -675,6 +686,34 @@ public partial class MainWindow : Window
     {
         var sequence = AsciiMotionAnimationLoader.LoadFromFile(filePath);
         ApplyAnimationSequence(sequence, filePath);
+    }
+
+    private void LoadDroppedAnimation(string sourcePath)
+    {
+        try
+        {
+            var animDir = AsciiMotionAnimationLoader.GetAnimationDirectory();
+            var destPath = Path.Combine(animDir, "widget-animation.json");
+
+            if (!string.Equals(sourcePath, destPath, StringComparison.OrdinalIgnoreCase))
+            {
+                File.Copy(sourcePath, destPath, overwrite: true);
+            }
+
+            AsciiMotionAnimationLoader.SavePreferredAnimationDisplayName(
+                Path.GetFileNameWithoutExtension(sourcePath));
+
+            LoadAnimationFromPath(destPath);
+
+            if (System.Windows.Application.Current is App app)
+            {
+                app.UpdateCurrentAnimationMenuItem();
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLog.Error("LoadDroppedAnimation failed.", ex);
+        }
     }
 
     private void Window_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
