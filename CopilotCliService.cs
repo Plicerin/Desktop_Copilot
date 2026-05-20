@@ -45,6 +45,36 @@ public sealed class CopilotCliService
         return string.Empty;
     }
 
+    public async Task<string> ExecuteSkillAsync(string skillName, string rawData, CancellationToken cancellationToken)
+    {
+        AppLog.Info($"CopilotCliService.ExecuteSkillAsync skill=\"{skillName}\"");
+        var prompt = BuildSkillPrompt(skillName, rawData);
+        var response = await RunCopilotAsync(prompt, useResume: true, cancellationToken);
+        if (response.ExitCode == 0)
+        {
+            var normalized = NormalizeResponse(response.Stdout);
+            AppLog.Info($"Skill \"{skillName}\" completed. Response=\"{normalized}\"");
+            return normalized;
+        }
+
+        if (!string.IsNullOrWhiteSpace(response.Stderr)
+            && response.Stderr.Contains(MissingSessionMarker, StringComparison.OrdinalIgnoreCase))
+        {
+            var firstRunResponse = await RunCopilotAsync(prompt, useResume: false, cancellationToken);
+            if (firstRunResponse.ExitCode == 0)
+            {
+                var normalized = NormalizeResponse(firstRunResponse.Stdout);
+                AppLog.Info($"Skill \"{skillName}\" completed via new session. Response=\"{normalized}\"");
+                return normalized;
+            }
+
+            ThrowFromResponse(firstRunResponse);
+        }
+
+        ThrowFromResponse(response);
+        return string.Empty;
+    }
+
     public async Task<string> ExecuteRequestAsync(string transcript, float? confidence, CancellationToken cancellationToken)
     {
         AppLog.Info($"CopilotCliService.ExecuteRequestAsync transcript=\"{transcript}\" confidence={confidence?.ToString("F2") ?? "n/a"}");
@@ -138,6 +168,20 @@ public sealed class CopilotCliService
             process.ExitCode,
             await stdoutTask,
             await stderrTask);
+    }
+
+    private static string BuildSkillPrompt(string skillName, string rawData)
+    {
+        return $$"""
+            You are the background Copilot actor behind a Windows 11 desktop maintenance widget.
+            A PC health skill named "{{skillName}}" just ran and collected the following raw data:
+
+            {{rawData}}
+
+            Summarize this data in one or two short sentences suitable for speech. Be direct and specific.
+            Mention anything that looks unhealthy or worth the user's attention.
+            Do not include markdown fences, JSON, or bullet lists.
+            """;
     }
 
     private static string BuildFileDropPrompt(string[] filePaths)

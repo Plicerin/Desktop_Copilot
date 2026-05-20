@@ -32,6 +32,7 @@ public partial class MainWindow : Window
     private readonly CopilotCliService _copilotCliService;
     private readonly EdgeTtsService _ttsService;
     private readonly SpeechCaptureService _speechCaptureService;
+    private readonly Skills.SkillRouter _skillRouter = new();
     private AnimationSequence _animationSequence;
     private TimeSpan _currentFrameDuration;
     private int _frameIndex;
@@ -486,7 +487,21 @@ public partial class MainWindow : Window
         try
         {
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(90));
-            var response = await _copilotCliService.ExecuteRequestAsync(transcript, confidence, timeout.Token);
+
+            var skill = _skillRouter.Match(transcript);
+            string response;
+
+            if (skill is not null)
+            {
+                AppLog.Info($"Skill matched: \"{skill.Name}\"");
+                var rawData = await skill.RunAsync(timeout.Token);
+                AppLog.Info($"Skill raw data: \"{rawData}\"");
+                response = await _copilotCliService.ExecuteSkillAsync(skill.Name, rawData, timeout.Token);
+            }
+            else
+            {
+                response = await _copilotCliService.ExecuteRequestAsync(transcript, confidence, timeout.Token);
+            }
 
             if (!string.IsNullOrWhiteSpace(response))
             {
