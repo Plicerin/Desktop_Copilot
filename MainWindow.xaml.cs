@@ -900,7 +900,7 @@ public partial class MainWindow : Window
             BackgroundFrameImage.Source = bitmap;
             BackgroundFrameImage.Visibility = Visibility.Visible;
             AnimationBackdrop.Visibility = Visibility.Collapsed;
-            _backgroundFrameContentInset = 44;
+            _backgroundFrameContentInset = 49;
         }
         catch (Exception ex)
         {
