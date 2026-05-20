@@ -66,17 +66,6 @@ public static class WidgetAppearanceCatalog
         new[]
         {
             FrameStylePreset.ShaderRing,
-            FrameStylePreset.ClassicChrome,
-            FrameStylePreset.NeonHalo,
-            FrameStylePreset.MinimalGlass,
-            FrameStylePreset.BareWire,
-            FrameStylePreset.BoldForge,
-            FrameStylePreset.DualOrbit,
-            FrameStylePreset.DeepGlass,
-            FrameStylePreset.CrosshairReticle,
-            FrameStylePreset.CornerBrackets,
-            FrameStylePreset.SegmentedHUD,
-            FrameStylePreset.ClockFace,
         };
 
     public static IReadOnlyList<ColorPalettePreset> ColorPalettes { get; } =

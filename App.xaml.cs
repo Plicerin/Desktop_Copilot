@@ -66,28 +66,15 @@ public partial class App : Wpf.Application
                 (_, _) => UseColorPalette(capturedPreset));
         }
 
-        var builtInAnimationsMenu = new Forms.ToolStripMenuItem("Built-in Animations");
-
-        foreach (var preset in AnimationPresets.All)
-        {
-            var capturedPreset = preset;
-            builtInAnimationsMenu.DropDownItems.Add(
-                AnimationPresets.GetDisplayName(capturedPreset),
-                null,
-                (_, _) => UseBuiltInAnimation(capturedPreset));
-        }
-
         _fileAnimationsMenu = new Forms.ToolStripMenuItem("File Animations") { Enabled = false };
 
         contextMenu.Items.Add(_currentAnimationMenuItem);
         contextMenu.Items.Add(new Forms.ToolStripSeparator());
         contextMenu.Items.Add(frameStylesMenu);
         contextMenu.Items.Add(colorPalettesMenu);
-        contextMenu.Items.Add(builtInAnimationsMenu);
         contextMenu.Items.Add(_fileAnimationsMenu);
         contextMenu.Items.Add("Load Animation...", null, (_, _) => LoadAnimationFromFile());
         contextMenu.Items.Add("Reload Animation", null, (_, _) => ReloadAnimation());
-        contextMenu.Items.Add("Zoom Kitty Animation", null, (_, _) => ZoomKittyAnimation());
         contextMenu.Items.Add("Open Animation Folder", null, (_, _) => OpenAnimationFolder());
         contextMenu.Items.Add("Run Crash Triage Snapshot", null, async (_, _) => await RunCrashTriageSnapshotAsync());
         contextMenu.Items.Add("Open Logs Folder", null, (_, _) => OpenLogsFolder());
@@ -229,20 +216,6 @@ public partial class App : Wpf.Application
             Arguments = $"\"{animationDirectory}\"",
             UseShellExecute = true
         });
-    }
-
-    private void ZoomKittyAnimation()
-    {
-        if (MainWindow is not MainWindow window) return;
-
-        var kittyPath = Path.Combine(AsciiMotionAnimationLoader.GetAnimationDirectory(), "kitty.json");
-        if (!File.Exists(kittyPath))
-        {
-            ShowTrayMessage("File not found", "kitty.json not found in the Animations folder.", Forms.ToolTipIcon.Error);
-            return;
-        }
-
-        window.EnterKittyZoomMode(kittyPath, initialCropW: 98, initialCropH: 50);
     }
 
     private void OpenLogsFolder()
