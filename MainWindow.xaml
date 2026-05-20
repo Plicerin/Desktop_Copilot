@@ -49,7 +49,11 @@
                  StrokeThickness="2" />
 
         <Grid x:Name="OrbContentHost"
-              Margin="24">
+              Margin="24"
+              RenderTransformOrigin="0.5,0.5">
+            <Grid.RenderTransform>
+                <TranslateTransform Y="-5" />
+            </Grid.RenderTransform>
             <Ellipse x:Name="AnimationBackdrop"
                      Fill="#FF000000" />
 
