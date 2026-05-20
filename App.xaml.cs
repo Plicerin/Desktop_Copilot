@@ -77,6 +77,7 @@ public partial class App : Wpf.Application
         contextMenu.Items.Add("Reload Animation", null, (_, _) => ReloadAnimation());
         contextMenu.Items.Add("Open Animation Folder", null, (_, _) => OpenAnimationFolder());
         contextMenu.Items.Add("Run Crash Triage Snapshot", null, async (_, _) => await RunCrashTriageSnapshotAsync());
+        contextMenu.Items.Add("Run Morning Health Report", null, (_, _) => RunMorningHealthReport());
         contextMenu.Items.Add("Open Logs Folder", null, (_, _) => OpenLogsFolder());
         contextMenu.Items.Add(new Forms.ToolStripSeparator());
         contextMenu.Items.Add("Show / Hide", null, (_, _) => ToggleWidgetVisibility());
@@ -229,6 +230,13 @@ public partial class App : Wpf.Application
             Arguments = $"\"{logsDirectory}\"",
             UseShellExecute = true
         });
+    }
+
+    private void RunMorningHealthReport()
+    {
+        if (MainWindow is not MainWindow window)
+            return;
+        window.RunMorningReport();
     }
 
     private async Task RunCrashTriageSnapshotAsync()

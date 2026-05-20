@@ -22,6 +22,31 @@ public sealed class DailyHealthReportService : IDisposable
         ScheduleNextRun();
     }
 
+    public void RunNow()
+    {
+        AppLog.Info("DailyHealthReportService.RunNow: triggered manually.");
+        _ = Task.Run(async () =>
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+            var sections = new List<string>();
+
+            foreach (var skill in _skillRouter.AllSkills)
+            {
+                try
+                {
+                    var data = await skill.RunAsync(cts.Token);
+                    sections.Add($"[{skill.Name}] {data}");
+                }
+                catch (Exception ex)
+                {
+                    sections.Add($"[{skill.Name}] Error: {ex.Message}");
+                }
+            }
+
+            ReportReady?.Invoke(this, string.Join("\n", sections));
+        });
+    }
+
     private void ScheduleNextRun()
     {
         var now = DateTime.Now;

@@ -520,6 +520,8 @@ public partial class MainWindow : Window
         }
     }
 
+    public void RunMorningReport() => _dailyHealthReport.RunNow();
+
     private async void OnDailyReportReady(object? sender, string aggregatedData)
     {
         AppLog.Info("OnDailyReportReady: delivering morning health report.");
