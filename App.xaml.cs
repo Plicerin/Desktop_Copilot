@@ -116,6 +116,11 @@ public partial class App : Wpf.Application
         return notifyIcon;
     }
 
+    public void ShowContextMenu()
+    {
+        _notifyIcon?.ContextMenuStrip?.Show(Forms.Cursor.Position);
+    }
+
     private void ToggleWidgetVisibility()
     {
         if (MainWindow is null)

@@ -16,6 +16,7 @@
         PreviewMouseLeftButtonUp="Window_MouseLeftButtonUp"
         PreviewMouseMove="Window_MouseMove"
         LostMouseCapture="Window_LostMouseCapture"
+        MouseRightButtonUp="Window_MouseRightButtonUp"
         ResizeMode="NoResize"
         ShowInTaskbar="False"
         Topmost="True"

@@ -219,6 +219,13 @@ public partial class MainWindow : Window
         Top = workArea.Bottom - Height - margin;
     }
 
+    private void Window_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (System.Windows.Application.Current is App app)
+            app.ShowContextMenu();
+        e.Handled = true;
+    }
+
     private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         AppLog.Info($"MouseLeftButtonDown state={_widgetState} buttonState={e.ButtonState}");
