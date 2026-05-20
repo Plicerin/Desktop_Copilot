@@ -11,6 +11,12 @@ public sealed class SkillRouter
         new MemorySkill(),
         new InternetHealthSkill(),
         new WindowsUpdateSkill(),
+        new CpuGpuSkill(),
+        new TopProcessesSkill(),
+        new ServicesHealthSkill(),
+        new EventLogSkill(),
+        new NetworkSpeedSkill(),
+        new SmartDiskSkill(),
     ];
 
     /// <summary>
