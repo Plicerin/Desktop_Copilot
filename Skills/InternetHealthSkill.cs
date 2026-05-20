@@ -5,7 +5,8 @@ namespace DesktopCopilot.Skills;
 public sealed class InternetHealthSkill : ISkill
 {
     public string Name => "Internet Health";
-    public string[] Keywords => ["internet", "connection", "network", "ping", "online", "connectivity", "internet connection"];
+    public string[] Keywords => ["internet", "connection", "network", "ping", "online", "connectivity", "internet connection",
+                                  "check internet", "check connection", "check network", "check ping", "check online", "check connectivity", "check internet connection"];
 
     private static readonly (string label, string host)[] Targets =
     [

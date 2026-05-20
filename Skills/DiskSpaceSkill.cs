@@ -5,7 +5,8 @@ namespace DesktopCopilot.Skills;
 public sealed class DiskSpaceSkill : ISkill
 {
     public string Name => "Disk Space";
-    public string[] Keywords => ["disk", "drive", "hard drive", "storage", "space", "disk space"];
+    public string[] Keywords => ["disk", "drive", "hard drive", "storage", "space", "disk space",
+                                  "check disk", "check drive", "check hard drive", "check storage", "check space", "check disk space"];
 
     public Task<string> RunAsync(CancellationToken cancellationToken)
     {

@@ -5,7 +5,8 @@ namespace DesktopCopilot.Skills;
 public sealed class MemorySkill : ISkill
 {
     public string Name => "Memory";
-    public string[] Keywords => ["memory", "ram", "available ram", "available memory", "free memory", "free ram"];
+    public string[] Keywords => ["memory", "ram", "available ram", "available memory", "free memory", "free ram",
+                                  "check memory", "check ram", "check available ram", "check available memory", "check free memory", "check free ram"];
 
     [StructLayout(LayoutKind.Sequential)]
     private struct MemoryStatusEx

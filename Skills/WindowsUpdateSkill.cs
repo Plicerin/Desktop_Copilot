@@ -5,7 +5,8 @@ namespace DesktopCopilot.Skills;
 public sealed class WindowsUpdateSkill : ISkill
 {
     public string Name => "Windows Update";
-    public string[] Keywords => ["updates", "windows update", "update", "pending updates", "available updates"];
+    public string[] Keywords => ["updates", "windows update", "update", "pending updates", "available updates",
+                                  "check updates", "check windows update", "check update", "check pending updates", "check available updates"];
 
     public async Task<string> RunAsync(CancellationToken cancellationToken)
     {
