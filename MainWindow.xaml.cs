@@ -22,8 +22,8 @@ public partial class MainWindow : Window
     private static readonly AnimationSequence DefaultAnimation = AnimationPresets.Get(BuiltInAnimationPreset.SignalBloom);
     private const string ReleaseCueSoundPath = @"C:\Windows\Media\Speech On.wav";
     private const bool AnimationPaused = false;
-    private const double DefaultWidgetWidth = 308;
-    private const double DefaultWidgetHeight = 248;
+    private const double DefaultWidgetWidth = 240;
+    private const double DefaultWidgetHeight = 240;
     private const double DragThreshold = 12;
     private const double FrameContentPadding = 6;
 
@@ -714,7 +714,7 @@ public partial class MainWindow : Window
     {
         Width = DefaultWidgetWidth;
         Height = DefaultWidgetHeight;
-        AnimationCanvas.Width = 260;
+        AnimationCanvas.Width = double.NaN;
         AnimationCanvas.Height = double.NaN;
         UpdateOrbContentLayout();
 
