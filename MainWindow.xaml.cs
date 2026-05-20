@@ -33,6 +33,7 @@ public partial class MainWindow : Window
     private readonly EdgeTtsService _ttsService;
     private readonly SpeechCaptureService _speechCaptureService;
     private readonly Skills.SkillRouter _skillRouter = new();
+    private readonly DailyHealthReportService _dailyHealthReport;
     private AnimationSequence _animationSequence;
     private TimeSpan _currentFrameDuration;
     private int _frameIndex;
@@ -82,6 +83,8 @@ public partial class MainWindow : Window
         _speechCaptureService.ListeningStateChanged += OnListeningStateChanged;
         _speechCaptureService.TranscriptCaptured += OnTranscriptCaptured;
         _speechCaptureService.CaptureFailed += OnCaptureFailed;
+        _dailyHealthReport = new DailyHealthReportService();
+        _dailyHealthReport.ReportReady += OnDailyReportReady;
         _builtInAnimationPreset = BuiltInAnimationPreset.SignalBloom;
         _frameStylePreset = FrameStylePreset.MinimalGlass;
         _colorPalettePreset = ColorPalettePreset.Copilot;
@@ -515,6 +518,27 @@ public partial class MainWindow : Window
             AppLog.Error("ProcessTranscriptAsync failed.", exception);
             await HandlePipelineFailureAsync("I couldn't get a response from Copilot.");
         }
+    }
+
+    private async void OnDailyReportReady(object? sender, string aggregatedData)
+    {
+        AppLog.Info("OnDailyReportReady: delivering morning health report.");
+        await Dispatcher.InvokeAsync(async () =>
+        {
+            try
+            {
+                ApplyVisualState(WidgetState.Thinking);
+                using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+                var response = await _copilotCliService.ExecuteDailyReportAsync(aggregatedData, cts.Token);
+                if (!string.IsNullOrWhiteSpace(response))
+                    await SpeakAsync(response);
+                ApplyVisualState(WidgetState.Idle);
+            }
+            catch (Exception ex)
+            {
+                AppLog.Error("OnDailyReportReady failed.", ex);
+            }
+        });
     }
 
     private async Task HandleCaptureFailureAsync(SpeechCaptureFailedEventArgs e)
@@ -1355,6 +1379,7 @@ public partial class MainWindow : Window
         _speechResultTimer.Stop();
         _speechCaptureService.Dispose();
         _ttsService.Dispose();
+        _dailyHealthReport.Dispose();
         base.OnClosed(e);
     }
 

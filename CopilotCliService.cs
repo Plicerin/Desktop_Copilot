@@ -45,6 +45,36 @@ public sealed class CopilotCliService
         return string.Empty;
     }
 
+    public async Task<string> ExecuteDailyReportAsync(string aggregatedData, CancellationToken cancellationToken)
+    {
+        AppLog.Info("CopilotCliService.ExecuteDailyReportAsync");
+        var prompt = BuildDailyReportPrompt(aggregatedData);
+        var response = await RunCopilotAsync(prompt, useResume: true, cancellationToken);
+        if (response.ExitCode == 0)
+        {
+            var normalized = NormalizeResponse(response.Stdout);
+            AppLog.Info($"Daily report completed. Response=\"{normalized}\"");
+            return normalized;
+        }
+
+        if (!string.IsNullOrWhiteSpace(response.Stderr)
+            && response.Stderr.Contains(MissingSessionMarker, StringComparison.OrdinalIgnoreCase))
+        {
+            var firstRunResponse = await RunCopilotAsync(prompt, useResume: false, cancellationToken);
+            if (firstRunResponse.ExitCode == 0)
+            {
+                var normalized = NormalizeResponse(firstRunResponse.Stdout);
+                AppLog.Info($"Daily report completed via new session. Response=\"{normalized}\"");
+                return normalized;
+            }
+
+            ThrowFromResponse(firstRunResponse);
+        }
+
+        ThrowFromResponse(response);
+        return string.Empty;
+    }
+
     public async Task<string> ExecuteSkillAsync(string skillName, string rawData, CancellationToken cancellationToken)
     {
         AppLog.Info($"CopilotCliService.ExecuteSkillAsync skill=\"{skillName}\"");
@@ -168,6 +198,20 @@ public sealed class CopilotCliService
             process.ExitCode,
             await stdoutTask,
             await stderrTask);
+    }
+
+    private static string BuildDailyReportPrompt(string aggregatedData)
+    {
+        return $$"""
+            You are the background Copilot actor behind a Windows 11 desktop maintenance widget.
+            It is 9:00 AM and you are delivering the daily PC health report. Here is the raw data collected from all health checks:
+
+            {{aggregatedData}}
+
+            Give a concise spoken morning briefing suitable for text-to-speech. Cover each area in one short sentence.
+            Lead with "Good morning" and end with an overall verdict: healthy, needs attention, or has issues.
+            Do not include markdown fences, JSON, or bullet lists.
+            """;
     }
 
     private static string BuildSkillPrompt(string skillName, string rawData)
