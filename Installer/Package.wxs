@@ -1,0 +1,45 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="Desktop Copilot"
+           Manufacturer="Plicerin"
+           Version="1.0.0.0"
+           Language="1033"
+           UpgradeCode="a966f379-0288-46c8-b722-514710c50514"
+           Scope="perMachine">
+    <MajorUpgrade DowngradeErrorMessage="A newer version of Desktop Copilot is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="Desktop Copilot" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ProgramMenuDir" Name="Desktop Copilot" />
+    </StandardDirectory>
+
+    <Icon Id="TrayIcon.ico" SourceFile="..\tray.ico" />
+
+    <Feature Id="MainFeature" Title="Desktop Copilot" Level="1">
+      <ComponentGroupRef Id="PublishedFiles" />
+      <ComponentGroupRef Id="ShortcutComponents" />
+    </Feature>
+  </Package>
+
+  <Fragment>
+    <ComponentGroup Id="ShortcutComponents">
+      <Component Directory="ProgramMenuDir" Guid="b1c91901-c378-4ed0-bc64-99c41c80f17b">
+        <Shortcut Id="DesktopCopilotStartMenuShortcut"
+                  Name="Desktop Copilot"
+                  Target="[INSTALLFOLDER]DesktopCopilot.exe"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="TrayIcon.ico" />
+        <RemoveFolder Id="RemoveProgramMenuDir" Directory="ProgramMenuDir" On="uninstall" />
+        <RegistryValue Root="HKCU"
+                       Key="Software\Plicerin\DesktopCopilot"
+                       Name="StartMenuShortcut"
+                       Type="integer"
+                       Value="1"
+                       KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+</Wix>

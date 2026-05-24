@@ -1,0 +1,16 @@
+<Project Sdk="WixToolset.Sdk/6.0.2">
+  <PropertyGroup>
+    <OutputType>Package</OutputType>
+    <InstallerPlatform>x64</InstallerPlatform>
+    <PublishDir>$(MSBuildThisFileDirectory)..\artifacts\publish\win-x64</PublishDir>
+    <GeneratedHarvestFile>$(MSBuildProjectDirectory)\obj\PublishedFiles.wxs</GeneratedHarvestFile>
+  </PropertyGroup>
+
+  <Target Name="PublishDesktopCopilot" BeforeTargets="BeforeBuild">
+    <Exec Command='dotnet publish "..\DesktopCopilot.csproj" -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false --nologo -o "$(PublishDir)"' />
+    <Exec Command='powershell -ExecutionPolicy Bypass -File "$(MSBuildThisFileDirectory)Generate-HarvestWxs.ps1" -PublishDir "$(PublishDir)\." -OutputFile "$(GeneratedHarvestFile)"' />
+    <ItemGroup>
+      <Compile Include="$(GeneratedHarvestFile)" />
+    </ItemGroup>
+  </Target>
+</Project>

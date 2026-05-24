@@ -6,7 +6,6 @@ namespace DesktopCopilot;
 public sealed class CopilotCliService
 {
     private const string SessionName = "DesktopCopilot Background Actor";
-    private const string MissingSessionMarker = "No session, task, or name matched";
     private readonly CrashTriageService _crashTriageService = new();
     private bool _sessionExists;
 
@@ -48,17 +47,11 @@ public sealed class CopilotCliService
             if (resumeResponse.ExitCode == 0)
                 return NormalizeResponse(resumeResponse.Stdout);
 
-            // Session may have expired — fall through to recreate it.
-            if (!string.IsNullOrWhiteSpace(resumeResponse.Stderr)
-                && resumeResponse.Stderr.Contains(MissingSessionMarker, StringComparison.OrdinalIgnoreCase))
-            {
-                AppLog.Info("Copilot CLI session expired. Recreating.");
-                _sessionExists = false;
-            }
-            else
-            {
-                ThrowFromResponse(resumeResponse);
-            }
+            // In non-interactive mode the CLI can fail resume with exit code 1 and no stderr
+            // even when the original named session was created successfully. Recreate the
+            // session instead of surfacing the transient resume failure to the user.
+            AppLog.Info($"Copilot CLI resume failed. Recreating named session. exitCode={resumeResponse.ExitCode} stderr=\"{resumeResponse.Stderr}\"");
+            _sessionExists = false;
         }
 
         AppLog.Info($"Copilot CLI: creating new named session. sessionWasKnown={_sessionExists}");

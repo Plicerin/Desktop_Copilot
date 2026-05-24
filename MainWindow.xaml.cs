@@ -41,6 +41,8 @@ public partial class MainWindow : Window
     private bool _awaitingSpeechResult;
     private bool _isListeningGestureActive;
     private double _animationSpeedFactor;
+    private float _speechLevel;
+    private float _speechLevelDelta;
     private WidgetState _widgetState;
     private WpfPoint _pressStart;
     private AnimationFrame? _lastRenderedFrame;
@@ -80,6 +82,7 @@ public partial class MainWindow : Window
         Loaded += OnLoaded;
         _copilotCliService = new CopilotCliService();
         _ttsService = new EdgeTtsService();
+        _ttsService.SpeechLevelChanged += OnSpeechLevelChanged;
         _speechCaptureService = new SpeechCaptureService();
         _speechCaptureService.ListeningStateChanged += OnListeningStateChanged;
         _speechCaptureService.TranscriptCaptured += OnTranscriptCaptured;
@@ -102,7 +105,7 @@ public partial class MainWindow : Window
 
         _speechResultTimer = new DispatcherTimer
         {
-            Interval = TimeSpan.FromSeconds(8)
+            Interval = TimeSpan.FromSeconds(60)
         };
         _speechResultTimer.Tick += OnSpeechResultTimeout;
 
@@ -125,6 +128,7 @@ public partial class MainWindow : Window
         // Pre-warm the Copilot CLI named session in the background so the
         // first real user request hits --resume instead of paying for session creation.
         _ = Task.Run(() => _copilotCliService.WarmUpAsync());
+        _ = Task.Run(() => _speechCaptureService.WarmUpAsync());
     }
 
     private void AdvanceFrame()
@@ -168,6 +172,11 @@ public partial class MainWindow : Window
         var lines = frame.Content
             .Replace("\r\n", "\n", StringComparison.Ordinal)
             .Split('\n');
+
+        if (_widgetState == WidgetState.Speaking)
+        {
+            lines = CreateSpeakingMouthOnlyFrame(lines);
+        }
 
         for (var y = 0; y < lines.Length; y++)
         {
@@ -579,6 +588,10 @@ public partial class MainWindow : Window
     {
         AppLog.Info($"ApplyVisualState {state}");
         _widgetState = state;
+        if (state != WidgetState.Speaking)
+        {
+            _speechLevel = 0f;
+        }
         var palette = WidgetAppearanceCatalog.GetPalette(_colorPalettePreset);
 
         var (shellFill, shellStroke, glowFill, faceColor, animationSpeedFactor) = state switch
@@ -1400,6 +1413,142 @@ public partial class MainWindow : Window
         _ttsService.Dispose();
         _dailyHealthReport.Dispose();
         base.OnClosed(e);
+    }
+
+    private void OnSpeechLevelChanged(object? sender, SpeechLevelChangedEventArgs e)
+    {
+        Dispatcher.InvokeAsync(() =>
+        {
+            var smoothedLevel = (_speechLevel * 0.55f) + (e.Level * 0.45f);
+            _speechLevelDelta = e.Level - _speechLevel;
+            _speechLevel = smoothedLevel < 0.015f ? 0f : smoothedLevel;
+            if (_widgetState == WidgetState.Speaking)
+            {
+                RefreshRenderedFrame();
+            }
+        });
+    }
+
+    private string[] CreateSpeakingMouthOnlyFrame(IReadOnlyList<string> sourceLines)
+    {
+        var width = Math.Max(18, sourceLines.Count == 0 ? 0 : sourceLines.Max(line => line.Length));
+        var height = Math.Max(9, sourceLines.Count);
+        var lines = Enumerable.Repeat(string.Empty.PadRight(width), height).ToArray();
+        var mouthShape = GetSpeakingMouthShape();
+        var top = Math.Max(1, (height - mouthShape.Length) / 2);
+
+        for (var index = 0; index < mouthShape.Length; index++)
+        {
+            lines[top + index] = CenterLine(mouthShape[index], width);
+        }
+
+        return lines;
+    }
+
+    private string[] GetSpeakingMouthShape()
+    {
+        if (_speechLevel < 0.05f)
+        {
+            return
+            [
+                "    .------.    ",
+                "     \\____/     "
+            ];
+        }
+
+        if (_speechLevel < 0.11f)
+        {
+            return
+            [
+                "    .------.    ",
+                "    \\ .--. /    ",
+                "     \\____/     "
+            ];
+        }
+
+        if (_speechLevel < 0.19f)
+        {
+            return
+            [
+                "     .----.     ",
+                "    / .--. \\    ",
+                "   | |    | |   ",
+                "    \\_.._/     "
+            ];
+        }
+
+        if (_speechLevel < 0.30f)
+        {
+            return _speechLevelDelta > 0.035f
+                ? [
+                    "      .--.      ",
+                    "    .'    '.    ",
+                    "   /  .--.  \\   ",
+                    "   | |    | |   ",
+                    "   \\  '--'  /   ",
+                    "    '.___.'    "
+                ]
+                : [
+                    "    .------.    ",
+                    "   /  .--.  \\   ",
+                    "  |  |    |  |  ",
+                    "  |  |____|  |  ",
+                    "   \\________/   "
+                ];
+        }
+
+        if (_speechLevel < 0.42f)
+        {
+            return _speechLevelDelta > 0.02f
+                ? [
+                    "      .--.      ",
+                    "    .'    '.    ",
+                    "   /  .--.  \\   ",
+                    "  |  /    \\  |  ",
+                    "  |  \\____/  |  ",
+                    "   \\  '--'  /   ",
+                    "    '.___.'    "
+                ]
+                : [
+                    "    .------.    ",
+                    "   /  ____  \\   ",
+                    "  |  |====|  |  ",
+                    "  |  |    |  |  ",
+                    "  |  |____|  |  ",
+                    "   \\________/   "
+                ];
+        }
+
+        return _speechLevelDelta > -0.015f
+            ? [
+                "      .--.      ",
+                "    .'    '.    ",
+                "   /  .--.  \\   ",
+                "  |  /    \\  |  ",
+                "  | |  ██  | |  ",
+                "  |  \\____/  |  ",
+                "   \\  '--'  /   ",
+                "    '.___.'    "
+            ]
+            : [
+                "    .------.    ",
+                "   /  ____  \\   ",
+                "  |  |====|  |  ",
+                "  |  | ██ |  |  ",
+                "  |  |____|  |  ",
+                "   \\________/   "
+            ];
+    }
+
+    private static string CenterLine(string content, int width)
+    {
+        if (content.Length >= width)
+        {
+            return content;
+        }
+
+        var leftPadding = (width - content.Length) / 2;
+        return new string(' ', leftPadding) + content + new string(' ', width - leftPadding - content.Length);
     }
 
     private enum WidgetState

@@ -12,10 +12,15 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.5" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3967.48" />
+    <PackageReference Include="NAudio" Version="2.3.0" />
     <PackageReference Include="System.Management" Version="9.0.5" />
+    <PackageReference Include="Whisper.net" Version="1.9.0" />
+    <PackageReference Include="Whisper.net.Runtime" Version="1.9.0" />
+    <PackageReference Include="Whisper.net.Runtime.NoAvx" Version="1.9.0" />
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="Models\**\*" CopyToOutputDirectory="PreserveNewest" />
     <Resource Include="tray.ico" />
     <Resource Include="Resources\frame.png" />
   </ItemGroup>
